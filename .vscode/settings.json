@@ -1,0 +1,7 @@
+{
+    "git.ignoreLimitWarning": true,
+    "python.defaultInterpreterPath": "C:\\Python314\\python.exe",
+    "python.terminal.activateEnvironment": false,
+    "python.analysis.extraPaths": ["."],
+    "python.analysis.libraryPaths": ["C:\\Python314\\Lib\\site-packages"]
+}
