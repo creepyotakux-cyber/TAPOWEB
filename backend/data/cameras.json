@@ -1,0 +1,53 @@
+{
+  "cameras": [
+    {
+      "name": "Galpon",
+      "ip": "10.10.10.51",
+      "user": "c200n1",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "name": "C5002",
+      "ip": "10.10.10.52",
+      "user": "c500n2",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "name": "Cam4",
+      "ip": "10.10.10.53",
+      "user": "c200n2",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "C200"
+    },
+    {
+      "name": "500n4",
+      "ip": "10.10.10.55",
+      "user": "c500n4",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "name": "C500N3",
+      "ip": "10.10.10.54",
+      "user": "c500n3",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    }
+  ],
+  "grid_size": 4,
+  "theme": "dark",
+  "recording_retention_days": 7,
+  "window_geometry": "01d9d0cb00030000000000eb0000002b00000660000003cd000000eb0000004a00000660000003cd00000000000000000780000000eb0000004a00000660000003cd"
+}
