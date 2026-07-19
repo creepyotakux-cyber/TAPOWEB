@@ -50,7 +50,7 @@ export function Dashboard() {
       <div className="flex-1 flex flex-col p-4 gap-3 min-w-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-text-primary">Dashboard</h1>
+            <h1 className="text-lg font-bold text-text-primary">Sistema de Vigilancia AGARVEN</h1>
             <p className="text-xs text-text-muted">{cameras.length} camaras{focusedCamera !== null && cameras[focusedCamera] ? ` · Flechas: ${cameras[focusedCamera].name}${kbPtzConnected ? ' ✓' : ' ...'}` : ' · Hover para flechas PTZ'}</p>
           </div>
           <div className="flex items-center gap-2">

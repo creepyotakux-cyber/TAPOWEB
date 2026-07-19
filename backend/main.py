@@ -13,6 +13,7 @@ from backend.ws.mjpeg_ws import mjpeg_websocket
 from backend.services.stream_manager import stream_manager
 from backend.services.recording_service import recording_service
 from backend.services.watchdog import watchdog
+from backend.services.mjpeg_manager import mjpeg_manager
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
 
@@ -24,9 +25,10 @@ async def lifespan(app: FastAPI):
     yield
     watchdog.stop()
     stream_manager.stop_all()
+    await mjpeg_manager.shutdown()
 
 
-app = FastAPI(title="WebTapo", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="AGARCORP DE VENEZUELA C.A", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,7 +65,7 @@ app.router.routes.append(WebSocketRoute("/ws/mjpeg/{camera_id}", ws_mjpeg_handle
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "streams": stream_manager.status(), "watchdog": watchdog.get_statuses()}
+    return {"status": "ok", "streams": stream_manager.status(), "watchdog": watchdog.get_statuses(), "mjpeg": mjpeg_manager.status()}
 
 
 if FRONTEND_DIR.exists():
