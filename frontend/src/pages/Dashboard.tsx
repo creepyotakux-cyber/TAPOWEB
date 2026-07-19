@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, LayoutGrid, Columns, GripVertical } from 'lucide-react';
 import {
   DndContext,
@@ -22,6 +22,8 @@ import { CameraTile } from '../components/CameraTile';
 import { PTZPanel } from '../components/PTZPanel';
 import { useKeyboardPtz } from '../hooks/useKeyboardPtz';
 
+const GAP = 8;
+
 function SortableCameraTile({
   index,
   cam,
@@ -33,6 +35,7 @@ function SortableCameraTile({
   onFocus,
   onBlur,
   onClick,
+  tileHeight,
 }: {
   index: number;
   cam: Camera;
@@ -44,14 +47,16 @@ function SortableCameraTile({
   onFocus: (id: number) => void;
   onBlur: () => void;
   onClick?: () => void;
+  tileHeight?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: index });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : 'auto' as string | number,
+    zIndex: isDragging ? 50 : 'auto',
+    ...(tileHeight ? { height: tileHeight, minHeight: tileHeight } : {}),
   };
 
   if (viewMode === 'lmain' && !isMain) {
@@ -109,12 +114,32 @@ export function Dashboard() {
   const [ptzCamera, setPtzCamera] = useState<number | null>(null);
   const [focusedCamera, setFocusedCamera] = useState<number | null>(null);
   const [watchdogMap, setWatchdogMap] = useState<Map<number, WatchdogStatus>>(new Map());
+  const [containerH, setContainerH] = useState(0);
+
+  const lmainRef = useRef<HTMLDivElement>(null);
 
   const { connected: kbPtzConnected } = useKeyboardPtz(cameras.length, focusedCamera);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+
+  useEffect(() => {
+    if (viewMode !== 'lmain') return;
+    const el = lmainRef.current;
+    if (!el) return;
+
+    const measure = () => setContainerH(el.clientHeight);
+    measure();
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [viewMode]);
 
   const load = useCallback(async () => {
     const cams = await api.getCameras();
@@ -190,10 +215,21 @@ export function Dashboard() {
   const cols = gridSize;
   const cameraIds = cameras.map((_, i) => i);
 
+  const otherIndices = cameras.map((_, i) => i).filter(i => i !== mainCamera);
+
+  const leftCount = Math.min(otherIndices.length, 4);
+  const bottomCount = Math.max(0, otherIndices.length - leftCount);
+  const leftIndices = otherIndices.slice(0, leftCount);
+  const bottomIndices = otherIndices.slice(leftCount);
+
+  const thumbH = leftCount > 0
+    ? Math.max(80, Math.floor((containerH - (leftCount - 1) * GAP - GAP - bottomCount * GAP) / (leftCount + (bottomCount > 0 ? 1 : 0))))
+    : 120;
+
   return (
     <div className="h-full flex bg-void">
       <div className="flex-1 flex flex-col p-4 gap-3 min-w-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between shrink-0">
           <div>
             <h1 className="text-lg font-bold text-text-primary">Sistema de Vigilancia AGARVEN</h1>
             <p className="text-xs text-text-muted">
@@ -258,49 +294,66 @@ export function Dashboard() {
           </DndContext>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <div className="flex-1 flex gap-3 min-h-0">
-              <div className="flex-1 min-w-0">
-                {cameras.length > 0 && (
+            <div ref={lmainRef} className="flex-1 flex flex-col gap-2 min-h-0">
+              <div className="flex gap-2 min-h-0" style={{ flex: leftCount + 1 }}>
+                <div className="shrink-0 flex flex-col gap-2" style={{ width: 260 }}>
                   <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
-                    <div className="h-full">
+                    {leftIndices.map(i => (
                       <SortableCameraTile
-                        index={mainCamera}
-                        cam={cameras[mainCamera]}
-                        wsUrl={mjpegUrl(mainCamera)}
-                        watchdog={watchdogMap.get(mainCamera) ?? null}
+                        key={i}
+                        index={i}
+                        cam={cameras[i]}
+                        wsUrl={mjpegUrl(i)}
+                        watchdog={watchdogMap.get(i) ?? null}
                         viewMode="lmain"
-                        isMain={true}
+                        isMain={false}
                         onOpenPtz={setPtzCamera}
                         onFocus={setFocusedCamera}
                         onBlur={() => setFocusedCamera(null)}
+                        onClick={() => handleColumnClick(i)}
+                        tileHeight={thumbH}
                       />
-                    </div>
+                    ))}
                   </SortableContext>
-                )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {cameras.length > 0 && (
+                    <SortableCameraTile
+                      index={mainCamera}
+                      cam={cameras[mainCamera]}
+                      wsUrl={mjpegUrl(mainCamera)}
+                      watchdog={watchdogMap.get(mainCamera) ?? null}
+                      viewMode="lmain"
+                      isMain={true}
+                      onOpenPtz={setPtzCamera}
+                      onFocus={setFocusedCamera}
+                      onBlur={() => setFocusedCamera(null)}
+                    />
+                  )}
+                </div>
               </div>
-              <div className="w-[260px] shrink-0 flex flex-col gap-2 overflow-y-auto pr-1">
-                <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
-                  {cameras.map((cam, i) => {
-                    if (i === mainCamera) return null;
-                    return (
-                      <div key={i} className="h-[145px] shrink-0">
-                        <SortableCameraTile
-                          index={i}
-                          cam={cam}
-                          wsUrl={mjpegUrl(i)}
-                          watchdog={watchdogMap.get(i) ?? null}
-                          viewMode="lmain"
-                          isMain={false}
-                          onOpenPtz={setPtzCamera}
-                          onFocus={setFocusedCamera}
-                          onBlur={() => setFocusedCamera(null)}
-                          onClick={() => handleColumnClick(i)}
-                        />
-                      </div>
-                    );
-                  })}
-                </SortableContext>
-              </div>
+              {bottomCount > 0 && (
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${bottomCount}, 1fr)`, height: thumbH }}>
+                  <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
+                    {bottomIndices.map(i => (
+                      <SortableCameraTile
+                        key={i}
+                        index={i}
+                        cam={cameras[i]}
+                        wsUrl={mjpegUrl(i)}
+                        watchdog={watchdogMap.get(i) ?? null}
+                        viewMode="lmain"
+                        isMain={false}
+                        onOpenPtz={setPtzCamera}
+                        onFocus={setFocusedCamera}
+                        onBlur={() => setFocusedCamera(null)}
+                        onClick={() => handleColumnClick(i)}
+                        tileHeight={thumbH}
+                      />
+                    ))}
+                  </SortableContext>
+                </div>
+              )}
             </div>
           </DndContext>
         )}
