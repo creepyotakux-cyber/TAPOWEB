@@ -7,7 +7,7 @@
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
-      "model": "c500"
+      "model": "C500"
     },
     {
       "name": "C5002",
@@ -16,7 +16,7 @@
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
-      "model": "c500"
+      "model": "C500"
     },
     {
       "name": "Cam4",
@@ -34,7 +34,7 @@
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
-      "model": "c500"
+      "model": "C500"
     },
     {
       "name": "C500N3",
@@ -43,20 +43,28 @@
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
-      "model": "c500"
+      "model": "C500"
     },
     {
-      "name": "base",
-      "ip": "192.168.239.51",
-      "user": "c200n1",
+      "name": "MPFM 40401",
+      "ip": "10.10.20.51",
+      "user": "mpfm40401",
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
-      "model": "c500"
+      "model": "C500"
+    },
+    {
+      "name": "MPFM 2",
+      "ip": "10.10.20.52",
+      "user": "mpfm40402",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "C500"
     }
   ],
-  "grid_size": 4,
+  "grid_size": 3,
   "theme": "dark",
-  "recording_retention_days": 7,
-  "window_geometry": "01d9d0cb00030000000000eb0000002b00000660000003cd000000eb0000004a00000660000003cd00000000000000000780000000eb0000004a00000660000003cd"
+  "recording_retention_days": 7
 }

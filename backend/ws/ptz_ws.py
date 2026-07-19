@@ -58,42 +58,54 @@ async def ptz_websocket(websocket: WebSocket, camera_id: int):
         while True:
             data = await websocket.receive_json()
             action = data.get("action", "")
-            _log(f"Action: {action}")
 
             match action:
                 case "move":
                     pan = float(data.get("pan", 0))
                     tilt = float(data.get("tilt", 0))
-                    onvif.continuous_move(pan, tilt)
+                    ok = onvif.continuous_move(pan, tilt)
+                    await websocket.send_json({"ok": ok})
                 case "stop":
-                    onvif.stop()
+                    ok = onvif.stop()
+                    await websocket.send_json({"ok": ok})
                 case "home":
-                    onvif.goto_home()
+                    ok = onvif.goto_home()
+                    await websocket.send_json({"ok": ok})
                 case "led_on":
-                    onvif.set_led(True)
-                    await websocket.send_json({"led": "on"})
+                    ok = onvif.set_led(True)
+                    await websocket.send_json({"ok": ok, "led": "on"})
                 case "led_off":
-                    onvif.set_led(False)
-                    await websocket.send_json({"led": "off"})
+                    ok = onvif.set_led(False)
+                    await websocket.send_json({"ok": ok, "led": "off"})
                 case "goto_preset":
-                    onvif.goto_preset(data.get("token", ""))
+                    ok = onvif.goto_preset(data.get("token", ""))
+                    await websocket.send_json({"ok": ok})
                 case "set_preset":
-                    token = onvif.set_preset(data.get("name", ""))
-                    await websocket.send_json({"preset_token": token})
+                    try:
+                        token = onvif.set_preset(data.get("name", ""))
+                        await websocket.send_json({"ok": True, "preset_token": token})
+                    except Exception:
+                        await websocket.send_json({"ok": False})
                 case "remove_preset":
                     onvif.remove_preset(data.get("token", ""))
+                    await websocket.send_json({"ok": True})
                 case "cruise_h":
                     onvif.cruise_horizontal(float(data.get("speed", 0.5)))
+                    await websocket.send_json({"ok": True})
                 case "cruise_v":
                     onvif.cruise_vertical(float(data.get("speed", 0.5)))
+                    await websocket.send_json({"ok": True})
                 case "stop_cruise":
                     onvif.stop_cruise()
+                    await websocket.send_json({"ok": True})
                 case "patrol":
                     tokens = data.get("tokens", [])
                     interval = int(data.get("interval", 10))
                     onvif.start_patrol(tokens, interval)
+                    await websocket.send_json({"ok": True})
                 case "stop_patrol":
                     onvif.stop_patrol()
+                    await websocket.send_json({"ok": True})
                 case "presets":
                     loop = asyncio.get_event_loop()
                     presets = await loop.run_in_executor(None, onvif.get_presets)

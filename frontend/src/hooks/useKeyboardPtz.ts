@@ -11,6 +11,7 @@ export function useKeyboardPtz(camerasCount: number, focusedCamera: number | nul
   const connsRef = useRef<Map<number, CamWs>>(new Map());
   const focusedRef = useRef<number | null>(null);
   const heldRef = useRef<Set<string>>(new Set());
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [connected, setConnected] = useState(false);
 
   focusedRef.current = focusedCamera;
@@ -77,6 +78,7 @@ export function useKeyboardPtz(camerasCount: number, focusedCamera: number | nul
         e.preventDefault();
         if (!held.has(e.key)) {
           held.add(e.key);
+          if (stopTimerRef.current) { clearTimeout(stopTimerRef.current); stopTimerRef.current = null; }
           const { pan, tilt } = computeDirection();
           send({ action: 'move', pan, tilt });
         }
@@ -87,7 +89,11 @@ export function useKeyboardPtz(camerasCount: number, focusedCamera: number | nul
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         held.delete(e.key);
         if (held.size === 0) {
-          send({ action: 'stop' });
+          if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+          stopTimerRef.current = setTimeout(() => {
+            stopTimerRef.current = null;
+            send({ action: 'stop' });
+          }, 30);
         } else {
           const { pan, tilt } = computeDirection();
           send({ action: 'move', pan, tilt });
@@ -102,6 +108,7 @@ export function useKeyboardPtz(camerasCount: number, focusedCamera: number | nul
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       held.clear();
+      if (stopTimerRef.current) { clearTimeout(stopTimerRef.current); stopTimerRef.current = null; }
     };
   }, []);
 

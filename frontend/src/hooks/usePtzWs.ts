@@ -4,6 +4,7 @@ export function usePtzWs(cameraId: number | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [led, setLed] = useState<'on' | 'off'>('off');
+  const [lastOk, setLastOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (cameraId === null) return;
@@ -11,15 +12,16 @@ export function usePtzWs(cameraId: number | null) {
     const ws = new WebSocket(`${protocol}//${location.host}/ws/ptz/${cameraId}`);
     wsRef.current = ws;
     ws.onopen = () => {};
-    ws.onclose = () => setConnected(false);
+    ws.onclose = () => { setConnected(false); setLastOk(null); };
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.connected) setConnected(true);
         if (data.led) setLed(data.led);
+        if (typeof data.ok === 'boolean') setLastOk(data.ok);
       } catch {}
     };
-    return () => { ws.close(); wsRef.current = null; setConnected(false); };
+    return () => { ws.close(); wsRef.current = null; setConnected(false); setLastOk(null); };
   }, [cameraId]);
 
   const send = useCallback((cmd: Record<string, unknown>) => {
@@ -42,5 +44,5 @@ export function usePtzWs(cameraId: number | null) {
   const ledOn = useCallback(() => send({ action: 'led_on' }), [send]);
   const ledOff = useCallback(() => send({ action: 'led_off' }), [send]);
 
-  return { connected, led, move, stop, home, gotoPreset, setPreset, removePreset, cruiseH, cruiseV, stopCruise, patrol, stopPatrol, ledOn, ledOff };
+  return { connected, led, lastOk, move, stop, home, gotoPreset, setPreset, removePreset, cruiseH, cruiseV, stopCruise, patrol, stopPatrol, ledOn, ledOff };
 }

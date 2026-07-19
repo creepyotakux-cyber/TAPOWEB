@@ -27,8 +27,10 @@ export default function App() {
   return (
     <div className="h-full flex">
       <Sidebar page={page} onNavigate={setPage} theme={theme} onToggleTheme={toggleTheme} />
-      <div className="flex-1 h-full overflow-hidden">
-        {page === 'dashboard' && <Dashboard />}
+      <div className="flex-1 h-full overflow-hidden relative">
+        <div className={page === 'dashboard' ? 'h-full' : 'h-full hidden'}>
+          <Dashboard />
+        </div>
         {page === 'config' && <Config />}
         {page === 'dvr' && <Dvr />}
         {page === 'recordings' && <Recordings />}

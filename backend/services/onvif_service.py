@@ -15,7 +15,9 @@ class OnvifService:
         self._patrol_stop: threading.Event | None = None
         self._cruise_stop: threading.Event | None = None
         self._light_on = False
-        self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="onvif")
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="onvif")
+        self._transport = None
+        self._fast_transport = None
 
     @property
     def is_connected(self) -> bool:
@@ -25,18 +27,18 @@ class OnvifService:
         if not self._connected or not self._ptz or not self._profile_token:
             raise RuntimeError("ONVIF not connected")
 
-    def connect(self, ip: str, user: str, password: str, port: int = 2020, max_retries: int = 5) -> dict:
+    def connect(self, ip: str, user: str, password: str, port: int = 2020, max_retries: int = 3) -> dict:
         with self._connect_lock:
             if self._connected and self._ptz is not None:
                 return {"success": True, "profile_token": self._profile_token, "presets": self.get_presets()}
-            self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="onvif")
             last_err = None
             for attempt in range(max_retries):
                 try:
                     from onvif import ONVIFCamera
                     from zeep import Transport
-                    transport = Transport(timeout=15, operation_timeout=30)
-                    self._cam = ONVIFCamera(ip, port, user, password, transport=transport)
+                    self._transport = Transport(timeout=5, operation_timeout=5)
+                    self._fast_transport = Transport(timeout=3, operation_timeout=3)
+                    self._cam = ONVIFCamera(ip, port, user, password, transport=self._transport)
                     self._cam.host = ip
                     for ns in list(self._cam.xaddrs.keys()):
                         old = self._cam.xaddrs[ns]
@@ -48,11 +50,7 @@ class OnvifService:
                         raise RuntimeError("No media profiles found")
                     self._profile_token = profiles[0].token
                     self._ptz = self._cam.create_ptz_service()
-                    try:
-                        fast_transport = Transport(timeout=15, operation_timeout=12)
-                        self._ptz.zeep_client.transport = fast_transport
-                    except Exception:
-                        pass
+                    self._ptz.zeep_client.transport = self._fast_transport
                     self._connected = True
                     try:
                         presets = self.get_presets()
@@ -62,42 +60,36 @@ class OnvifService:
                 except Exception as e:
                     last_err = e
                     if attempt < max_retries - 1:
-                        time.sleep(3 + attempt * 2)
+                        time.sleep(1 + attempt)
             self._connected = False
             return {"success": False, "error": str(last_err)}
 
-    def continuous_move(self, pan: float, tilt: float):
-        def _do():
-            if not self._connected or not self._ptz or not self._profile_token:
-                return
-            try:
-                from zeep import Transport
-                fresh = Transport(timeout=15, operation_timeout=12)
-                self._ptz.zeep_client.transport = fresh
-                self._ptz.ContinuousMove({
-                    "ProfileToken": self._profile_token,
-                    "Velocity": {"PanTilt": {"x": float(pan), "y": float(tilt)}},
-                })
-            except Exception:
-                pass
-        threading.Thread(target=_do, daemon=True).start()
+    def continuous_move(self, pan: float, tilt: float) -> bool:
+        if not self._connected or not self._ptz or not self._profile_token:
+            return False
+        try:
+            self._ptz.ContinuousMove({
+                "ProfileToken": self._profile_token,
+                "Velocity": {"PanTilt": {"x": float(pan), "y": float(tilt)}},
+            })
+            return True
+        except Exception:
+            self._connected = False
+            return False
 
-    def stop(self):
-        def _do():
-            if not self._connected or not self._ptz or not self._profile_token:
-                return
-            try:
-                from zeep import Transport
-                fresh = Transport(timeout=15, operation_timeout=12)
-                self._ptz.zeep_client.transport = fresh
-                self._ptz.Stop({
-                    "ProfileToken": self._profile_token,
-                    "PanTilt": True,
-                    "Zoom": True,
-                })
-            except Exception:
-                pass
-        threading.Thread(target=_do, daemon=True).start()
+    def stop(self) -> bool:
+        if not self._connected or not self._ptz or not self._profile_token:
+            return False
+        try:
+            self._ptz.Stop({
+                "ProfileToken": self._profile_token,
+                "PanTilt": True,
+                "Zoom": True,
+            })
+            return True
+        except Exception:
+            self._connected = False
+            return False
 
     def set_led(self, enabled: bool) -> bool:
         self._require()
@@ -127,26 +119,26 @@ class OnvifService:
             resp = self._ptz.SetPreset({"ProfileToken": self._profile_token, "PresetName": str(name)})
             return str(resp)
 
-    def goto_preset(self, preset_token: str):
+    def goto_preset(self, preset_token: str) -> bool:
         self._require()
-        def _do():
-            with self._lock:
-                try:
-                    self._ptz.GotoPreset({
-                        "ProfileToken": self._profile_token,
-                        "PresetToken": preset_token,
-                        "Speed": {"PanTilt": {"x": 0.5, "y": 0.5}},
-                    })
-                except Exception:
-                    self._connected = False
-        self._executor.submit(_do)
+        with self._lock:
+            try:
+                self._ptz.GotoPreset({
+                    "ProfileToken": self._profile_token,
+                    "PresetToken": preset_token,
+                    "Speed": {"PanTilt": {"x": 0.5, "y": 0.5}},
+                })
+                return True
+            except Exception:
+                self._connected = False
+                return False
 
     def remove_preset(self, preset_token: str):
         self._require()
         with self._lock:
             self._ptz.RemovePreset({"ProfileToken": self._profile_token, "PresetToken": preset_token})
 
-    def goto_home(self):
+    def goto_home(self) -> bool:
         self._require()
         with self._lock:
             try:
@@ -154,8 +146,9 @@ class OnvifService:
                     "ProfileToken": self._profile_token,
                     "Speed": {"PanTilt": {"x": 0.5, "y": 0.5}},
                 })
+                return True
             except Exception:
-                pass
+                return False
 
     def cruise_horizontal(self, speed: float = 0.5):
         self._cruise_stop = threading.Event()
@@ -229,7 +222,5 @@ class OnvifService:
         self._ptz = None
         self._media = None
         self._profile_token = None
-        try:
-            self._executor.shutdown(wait=False)
-        except Exception:
-            pass
+        self._transport = None
+        self._fast_transport = None
