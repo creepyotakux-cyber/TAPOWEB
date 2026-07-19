@@ -76,8 +76,8 @@ export const api = {
   updateCamera: (i: number, cam: Partial<Camera>) => request<{ cameras: Camera[] }>(`/api/cameras/${i}`, { method: 'PUT', body: JSON.stringify(cam) }),
   deleteCamera: (i: number) => request<{ cameras: Camera[] }>(`/api/cameras/${i}`, { method: 'DELETE' }),
   reorderCameras: (from: number, to: number) => request<{ cameras: Camera[] }>('/api/cameras/reorder', { method: 'PUT', body: JSON.stringify({ from_index: from, to_index: to }) }),
-  getSettings: () => request<{ grid_size: number; theme: string }>('/api/cameras/settings'),
-  updateSettings: (s: { grid_size?: number; theme?: string }) => request<{ grid_size: number; theme: string }>('/api/cameras/settings', { method: 'PUT', body: JSON.stringify(s) }),
+  getSettings: () => request<{ grid_size: number; theme: string; view_mode: string; main_camera: number }>('/api/cameras/settings'),
+  updateSettings: (s: { grid_size?: number; theme?: string; view_mode?: string; main_camera?: number }) => request<{ grid_size: number; theme: string; view_mode: string; main_camera: number }>('/api/cameras/settings', { method: 'PUT', body: JSON.stringify(s) }),
 
   startStream: (id: number) => request(`/api/stream/${id}/start`, { method: 'POST' }),
   stopStream: (id: number) => request(`/api/stream/${id}/stop`, { method: 'POST' }),

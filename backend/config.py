@@ -15,6 +15,8 @@ DEFAULT_SETTINGS: dict = {
     "cameras": [],
     "grid_size": 4,
     "theme": "dark",
+    "view_mode": "grid",
+    "main_camera": 0,
     "recording_retention_days": 7,
 }
 

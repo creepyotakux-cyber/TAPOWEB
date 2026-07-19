@@ -38,7 +38,12 @@ def reorder_cameras(req: ReorderRequest):
 @router.get("/settings")
 def get_settings():
     s = load_settings()
-    return {"grid_size": s.get("grid_size", 4), "theme": s.get("theme", "dark")}
+    return {
+        "grid_size": s.get("grid_size", 4),
+        "theme": s.get("theme", "dark"),
+        "view_mode": s.get("view_mode", "grid"),
+        "main_camera": s.get("main_camera", 0),
+    }
 
 
 @router.put("/settings")
@@ -48,8 +53,18 @@ def update_settings(body: dict):
         settings["grid_size"] = max(2, min(6, body["grid_size"]))
     if "theme" in body:
         settings["theme"] = body["theme"]
+    if "view_mode" in body:
+        settings["view_mode"] = body["view_mode"]
+    if "main_camera" in body:
+        settings["main_camera"] = max(0, body["main_camera"])
     save_settings(settings)
-    return {"success": True, "grid_size": settings["grid_size"], "theme": settings["theme"]}
+    return {
+        "success": True,
+        "grid_size": settings["grid_size"],
+        "theme": settings["theme"],
+        "view_mode": settings["view_mode"],
+        "main_camera": settings["main_camera"],
+    }
 
 
 @router.put("/{index}")
