@@ -44,6 +44,15 @@
       "cloud_password": "",
       "enabled": true,
       "model": "c500"
+    },
+    {
+      "name": "base",
+      "ip": "192.168.239.51",
+      "user": "c200n1",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
     }
   ],
   "grid_size": 4,
