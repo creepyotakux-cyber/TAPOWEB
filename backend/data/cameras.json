@@ -10,9 +10,36 @@
       "model": "c500"
     },
     {
-      "name": "base",
-      "ip": "192.168.239.51",
-      "user": "c200n1",
+      "name": "C5002",
+      "ip": "10.10.10.52",
+      "user": "c500n2",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "name": "Cam4",
+      "ip": "10.10.10.53",
+      "user": "c200n2",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "C200"
+    },
+    {
+      "name": "500n4",
+      "ip": "10.10.10.55",
+      "user": "c500n4",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "name": "C500N3",
+      "ip": "10.10.10.54",
+      "user": "c500n3",
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
