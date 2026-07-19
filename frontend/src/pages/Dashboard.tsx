@@ -223,10 +223,10 @@ export function Dashboard() {
   const leftIndices = otherIndices.slice(0, leftCount);
   const bottomIndices = otherIndices.slice(leftCount);
 
-  const thumbH = leftCount > 0
+  const tileSize = leftCount > 0
     ? Math.max(80, Math.floor((containerH - (leftCount > 1 ? (leftCount - 1) * GAP : 0) - (bottomCount > 0 ? GAP : 0)) / (leftCount + (bottomCount > 0 ? 1 : 0))))
     : 120;
-  const upperH = containerH - thumbH - (bottomCount > 0 ? GAP : 0);
+  const upperH = leftCount * tileSize + (leftCount > 1 ? (leftCount - 1) * GAP : 0);
 
   return (
     <div className="h-full flex bg-void">
@@ -313,7 +313,7 @@ export function Dashboard() {
                         onFocus={setFocusedCamera}
                         onBlur={() => setFocusedCamera(null)}
                         onClick={() => handleColumnClick(i)}
-                        tileHeight={thumbH}
+                        tileHeight={tileSize}
                       />
                     ))}
                   </SortableContext>
@@ -330,12 +330,13 @@ export function Dashboard() {
                       onOpenPtz={setPtzCamera}
                       onFocus={setFocusedCamera}
                       onBlur={() => setFocusedCamera(null)}
+                      tileHeight={tileSize}
                     />
                   )}
                 </div>
               </div>
               {bottomCount > 0 && (
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${bottomCount}, 1fr)`, height: thumbH, minHeight: thumbH }}>
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${bottomCount}, 1fr)`, height: tileSize, minHeight: tileSize }}>
                   <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
                     {bottomIndices.map(i => (
                       <SortableCameraTile
@@ -350,7 +351,7 @@ export function Dashboard() {
                         onFocus={setFocusedCamera}
                         onBlur={() => setFocusedCamera(null)}
                         onClick={() => handleColumnClick(i)}
-                        tileHeight={thumbH}
+                        tileHeight={tileSize}
                       />
                     ))}
                   </SortableContext>
