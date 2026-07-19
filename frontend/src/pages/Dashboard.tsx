@@ -78,6 +78,7 @@ function SortableCameraTile({
             onOpenPtz={onOpenPtz}
             onFocus={onFocus}
             onBlur={onBlur}
+            className="min-h-0"
           />
         </div>
       </div>
@@ -223,8 +224,9 @@ export function Dashboard() {
   const bottomIndices = otherIndices.slice(leftCount);
 
   const thumbH = leftCount > 0
-    ? Math.max(80, Math.floor((containerH - (leftCount - 1) * GAP - GAP - bottomCount * GAP) / (leftCount + (bottomCount > 0 ? 1 : 0))))
+    ? Math.max(80, Math.floor((containerH - (leftCount > 1 ? (leftCount - 1) * GAP : 0) - (bottomCount > 0 ? GAP : 0)) / (leftCount + (bottomCount > 0 ? 1 : 0))))
     : 120;
+  const upperH = containerH - thumbH - (bottomCount > 0 ? GAP : 0);
 
   return (
     <div className="h-full flex bg-void">
@@ -295,7 +297,7 @@ export function Dashboard() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <div ref={lmainRef} className="flex-1 flex flex-col gap-2 min-h-0">
-              <div className="flex gap-2 min-h-0" style={{ flex: leftCount + 1 }}>
+              <div className="flex gap-2" style={{ height: upperH, minHeight: upperH }}>
                 <div className="shrink-0 flex flex-col gap-2" style={{ width: 260 }}>
                   <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
                     {leftIndices.map(i => (
@@ -316,7 +318,7 @@ export function Dashboard() {
                     ))}
                   </SortableContext>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 h-full flex flex-col">
                   {cameras.length > 0 && (
                     <SortableCameraTile
                       index={mainCamera}
@@ -333,7 +335,7 @@ export function Dashboard() {
                 </div>
               </div>
               {bottomCount > 0 && (
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${bottomCount}, 1fr)`, height: thumbH }}>
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${bottomCount}, 1fr)`, height: thumbH, minHeight: thumbH }}>
                   <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
                     {bottomIndices.map(i => (
                       <SortableCameraTile

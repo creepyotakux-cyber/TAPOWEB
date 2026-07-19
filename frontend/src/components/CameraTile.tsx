@@ -14,9 +14,10 @@ interface Props {
   onFullscreenExit?: () => void;
   onFocus?: (id: number) => void;
   onBlur?: () => void;
+  className?: string;
 }
 
-export function CameraTile({ index, name, wsUrl, watchdog, onOpenPtz, onFullscreenEnter, onFullscreenExit, onFocus, onBlur }: Props) {
+export function CameraTile({ index, name, wsUrl, watchdog, onOpenPtz, onFullscreenEnter, onFullscreenExit, onFocus, onBlur, className }: Props) {
   const { canvasRef, playing, error } = useMjpegWs(wsUrl);
   const [recording, setRecording] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -73,7 +74,7 @@ export function CameraTile({ index, name, wsUrl, watchdog, onOpenPtz, onFullscre
   return (
     <div
       ref={containerRef}
-      className={`relative bg-elevated border border-glass-border rounded-lg overflow-hidden group cursor-pointer min-h-[180px] ${isFullscreen ? 'flex flex-col' : ''} ${recovering ? 'ring-2 ring-warning/50' : ''} ${blackDetected ? 'ring-2 ring-danger/50' : ''}`}
+      className={`relative bg-elevated border border-glass-border rounded-lg overflow-hidden group cursor-pointer min-h-[180px] ${isFullscreen ? 'flex flex-col' : ''} ${recovering ? 'ring-2 ring-warning/50' : ''} ${blackDetected ? 'ring-2 ring-danger/50' : ''} ${className ?? ''}`}
       onDoubleClick={enterFullscreen}
       onContextMenu={(e) => { e.preventDefault(); setMenuOpen(!menuOpen); }}
       onMouseEnter={() => onFocus?.(index)}
