@@ -1,7 +1,7 @@
 {
   "cameras": [
     {
-      "name": "Galpon",
+      "name": "c200n2 trailer",
       "ip": "10.10.10.51",
       "user": "c200n1",
       "password": "agar1212",
@@ -19,7 +19,7 @@
       "model": "C500"
     },
     {
-      "name": "Cam4",
+      "name": "c200 trailer",
       "ip": "10.10.10.53",
       "user": "c200n2",
       "password": "agar1212",
