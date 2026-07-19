@@ -61,7 +61,7 @@ function SortableCameraTile({
 
   if (viewMode === 'lmain' && !isMain) {
     return (
-      <div ref={setNodeRef} style={style} className="relative group h-full">
+      <div ref={setNodeRef} style={style} className="relative group h-full overflow-hidden">
         <div
           {...attributes}
           {...listeners}
