@@ -218,6 +218,17 @@ class Watchdog:
             status.pid = proc.pid if alive else None
 
             if alive:
+                stuck = self._is_recording_stuck(camera_id)
+                if stuck:
+                    self._handle_failure(camera_id, "recording", cam, "recording process stuck (no data written)", status)
+                    # Force restart: kill the stuck process so the next loop iteration starts a fresh one.
+                    try:
+                        proc.kill()
+                        proc.wait(timeout=3)
+                    except Exception:
+                        pass
+                    self._recording_service.stop(camera_id)
+                    continue
                 status.healthy = True
                 status.last_error = ""
                 status.recovering = False
@@ -225,6 +236,28 @@ class Watchdog:
                 self._reset_backoff((camera_id, "recording"))
             else:
                 self._handle_failure(camera_id, "recording", cam, "recording process died", status)
+
+    def _is_recording_stuck(self, camera_id: str) -> bool:
+        """Return True if the current DVR segment exists, ffmpeg is alive,
+        but the file hasn't grown past 0 bytes for more than 90 seconds.
+        This catches cases where RTSP connects but no frames are delivered
+        (e.g. account desync, network glitch after open)."""
+        import datetime
+        try:
+            d = RECORDINGS_DIR / f"cam_{camera_id}"
+            if not d.exists():
+                return False
+            name = datetime.datetime.now().strftime("%Y%m%d_%H.mp4")
+            f = d / name
+            if not f.exists():
+                return False
+            stat = f.stat()
+            if stat.st_size > 0:
+                return False
+            age = time.time() - stat.st_mtime
+            return age > 90
+        except OSError:
+            return False
 
     def _handle_failure(self, camera_id: str, kind: str, cam: dict, reason: str, status: StreamStatus):
         status.consecutive_failures += 1

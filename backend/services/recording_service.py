@@ -3,8 +3,12 @@ import shutil
 import time
 import re
 import threading
+import datetime
+import logging
 from pathlib import Path
 from backend.config import RECORDINGS_DIR
+
+logger = logging.getLogger("recording_service")
 
 
 SEGMENT_PATTERN = re.compile(r"^(\d{4})(\d{2})(\d{2})_(\d{2})\.mp4$")
@@ -37,6 +41,38 @@ class RecordingService:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    def _delete_stale_current_segment(self, camera_id: str) -> None:
+        """Remove the file for the current local hour if it is 0 bytes or was
+        last modified >60 s ago (likely a stuck/partial segment from a prior
+        ffmpeg that died without flushing its moov atom). FFmpeg's segment
+        muxer refuses to overwrite a partially-written file cleanly on
+        Windows, so we delete it so the next ffmpeg starts fresh."""
+        try:
+            d = self._camera_dir(camera_id)
+            if not d.exists():
+                return
+            name = datetime.datetime.now().strftime("%Y%m%d_%H.mp4")
+            f = d / name
+            if not f.exists():
+                return
+            try:
+                stat = f.stat()
+            except OSError:
+                return
+            if stat.st_size == 0:
+                logger.info("Camera %s: removing empty current segment %s", camera_id, name)
+                f.unlink(missing_ok=True)
+                return
+            age = time.time() - stat.st_mtime
+            if age > 60:
+                logger.warning(
+                    "Camera %s: removing stale current segment %s (size=%d, age=%ds)",
+                    camera_id, name, stat.st_size, int(age),
+                )
+                f.unlink(missing_ok=True)
+        except OSError:
+            pass
+
     def start(self, camera_id: str, rtsp_url: str, camera_name: str = "cam") -> dict:
         if camera_id in self._processes:
             proc = self._processes[camera_id]
@@ -44,6 +80,7 @@ class RecordingService:
                 return {"success": True, "already_running": True, "message": "DVR recording already active"}
 
         self._names[camera_id] = camera_name
+        self._delete_stale_current_segment(camera_id)
         out_dir = self._ensure_dir(camera_id)
 
         ffmpeg = self._resolve_ffmpeg()
@@ -73,8 +110,16 @@ class RecordingService:
                 cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
             )
+            t = threading.Thread(
+                target=self._stderr_reader,
+                args=(camera_id, proc),
+                daemon=True,
+                name=f"dvr-stderr-{camera_id}",
+            )
+            t.start()
             self._processes[camera_id] = proc
             self._paths[camera_id] = seg_path
             self._start_cleanup_loop()
@@ -82,7 +127,42 @@ class RecordingService:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def stop(self, camera_id: str) -> dict:
+    def _stderr_reader(self, camera_id: str, proc: subprocess.Popen):
+        try:
+            for raw in iter(proc.stderr.readline, b""):
+                line = raw.decode("utf-8", "replace").rstrip()
+                if not line:
+                    continue
+                low = line.lower()
+                if any(k in low for k in ("error", "denied", "401", "403", "refused", "timed out", "unauthorized", "not permitted")):
+                    logger.warning("Camera %s DVR: %s", camera_id, line)
+        except Exception:
+            pass
+
+    def _in_progress_filename(self, camera_id: str) -> str | None:
+        """Return the filename of the segment currently being written by FFmpeg,
+        or None if the camera is not recording right now. The DVR writes
+        ``%Y%m%d_%H.mp4`` in the camera directory; the file at this exact
+        local hour is the one FFmpeg still holds open (moov atom not flushed
+        yet, so browsers cannot stream it)."""
+        proc = self._processes.get(camera_id)
+        if proc is None or proc.poll() is not None:
+            return None
+        return datetime.datetime.now().strftime("%Y%m%d_%H.mp4")
+
+    def _iter_segment_files(self, camera_id: str, skip_in_progress: bool = False):
+        d = self._camera_dir(camera_id)
+        if not d.exists():
+            return []
+        skip_name = self._in_progress_filename(camera_id) if skip_in_progress else None
+        out = []
+        for f in d.glob("*.mp4"):
+            if not SEGMENT_PATTERN.match(f.name):
+                continue
+            if skip_name and f.name == skip_name:
+                continue
+            out.append(f)
+        return out
         proc = self._processes.pop(camera_id, None)
         path = self._paths.pop(camera_id, None)
         self._names.pop(camera_id, None)
@@ -116,12 +196,6 @@ class RecordingService:
         proc = self._processes.get(camera_id)
         return proc is not None and proc.poll() is None
 
-    def _iter_segment_files(self, camera_id: str):
-        d = self._camera_dir(camera_id)
-        if not d.exists():
-            return []
-        return [f for f in d.glob("*.mp4") if SEGMENT_PATTERN.match(f.name)]
-
     def list_recordings(self) -> list[dict]:
         recordings: list[dict] = []
 
@@ -129,7 +203,7 @@ class RecordingService:
             if not cam_dir.is_dir():
                 continue
             cam_id = cam_dir.name.removeprefix("cam_")
-            for f in self._iter_segment_files(cam_id):
+            for f in self._iter_segment_files(cam_id, skip_in_progress=True):
                 m = SEGMENT_PATTERN.match(f.name)
                 if not m:
                     continue
@@ -165,7 +239,7 @@ class RecordingService:
 
     def get_calendar(self, camera_id: str) -> list[dict]:
         by_date: dict[str, dict] = {}
-        for f in self._iter_segment_files(camera_id):
+        for f in self._iter_segment_files(camera_id, skip_in_progress=True):
             m = SEGMENT_PATTERN.match(f.name)
             if not m:
                 continue
@@ -184,10 +258,13 @@ class RecordingService:
         cam_dir = self._camera_dir(camera_id)
         if not cam_dir.exists():
             return []
+        skip_name = self._in_progress_filename(camera_id)
         hours: list[dict] = []
         for f in cam_dir.glob(f"{ymd}_*.mp4"):
             m = SEGMENT_PATTERN.match(f.name)
             if not m:
+                continue
+            if skip_name and f.name == skip_name:
                 continue
             hour = int(m.group(4))
             stat = f.stat()
