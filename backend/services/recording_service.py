@@ -103,6 +103,15 @@ class RecordingService:
             pass
         return {"success": True, "file": path}
 
+    def stop_all(self):
+        for cid in list(self._processes.keys()):
+            try:
+                self.stop(cid)
+            except Exception:
+                pass
+        if self._cleanup_thread is not None and self._cleanup_stop is not None:
+            self._cleanup_stop.set()
+
     def is_recording(self, camera_id: str) -> bool:
         proc = self._processes.get(camera_id)
         return proc is not None and proc.poll() is None

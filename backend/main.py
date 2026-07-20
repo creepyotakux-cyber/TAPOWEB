@@ -1,12 +1,13 @@
 from pathlib import Path
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.routing import WebSocketRoute
 
-from backend.config import HLS_DIR, RECORDINGS_DIR, SNAPSHOTS_DIR
+from backend.config import HLS_DIR, RECORDINGS_DIR, SNAPSHOTS_DIR, load_settings, build_rtsp_url
 from backend.routers import cameras, stream, ptz, recordings, snapshots
 from backend.ws.ptz_ws import ptz_websocket
 from backend.ws.mjpeg_ws import mjpeg_websocket
@@ -15,16 +16,46 @@ from backend.services.recording_service import recording_service
 from backend.services.watchdog import watchdog
 from backend.services.mjpeg_manager import mjpeg_manager
 
+logger = logging.getLogger("main")
+
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
+
+
+def _autostart_recording():
+    """Start continuous DVR recording for every enabled camera."""
+    try:
+        settings = load_settings()
+        cams = settings.get("cameras", [])
+        started = 0
+        for cam in cams:
+            if not cam.get("enabled", True):
+                continue
+            cid = cam.get("id")
+            if not cid:
+                continue
+            if recording_service.is_recording(cid):
+                continue
+            url = build_rtsp_url(cam)
+            result = recording_service.start(cid, url, cam.get("name", f"cam{cid}"))
+            if result.get("success"):
+                started += 1
+                logger.info("Autostart recording for camera %s (%s)", cid, cam.get("name", "?"))
+            else:
+                logger.warning("Autostart failed for camera %s: %s", cid, result.get("error"))
+        logger.info("Autostart recording: %d/%d cameras", started, len(cams))
+    except Exception as e:
+        logger.error("Autostart recording error: %s", e)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     watchdog.set_services(stream_manager, recording_service)
+    _autostart_recording()
     watchdog.start()
     yield
     watchdog.stop()
     stream_manager.stop_all()
+    recording_service.stop_all()
     await mjpeg_manager.shutdown()
 
 

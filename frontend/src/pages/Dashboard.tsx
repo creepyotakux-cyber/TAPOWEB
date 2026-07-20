@@ -132,12 +132,28 @@ export function Dashboard() {
   );
 
   const load = useCallback(async () => {
-    const cams = await api.getCameras();
+    const allCams = await api.getCameras();
+    // De-duplicate by IP (physical-camera identity) and by id, keep first occurrence.
+    // Also ignore disabled cameras and entries without a usable ip/id (defensive).
+    const seenIp = new Set<string>();
+    const seenId = new Set<string>();
+    const cams = allCams.filter(cam => {
+      if (cam.enabled === false) return false;
+      const id = cam.id ?? '';
+      const ip = (cam.ip ?? '').trim();
+      if (!id || !ip) return false;
+      if (seenId.has(id)) return false;
+      if (seenIp.has(ip)) return false;
+      seenId.add(id);
+      seenIp.add(ip);
+      return true;
+    });
     setCameras(cams);
     const s = await api.getSettings();
     setGridSize(s.grid_size);
     setViewMode(s.view_mode as 'grid' | 'lmain');
-    setMainCamera(s.main_camera || (cams.length > 0 ? cams[0].id : ''));
+    const mainId = cams.find(c => c.id === s.main_camera) ? s.main_camera : (cams.length > 0 ? cams[0].id : '');
+    setMainCamera(mainId);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -234,7 +250,15 @@ export function Dashboard() {
           </div>
         </div>
 
-        {viewMode === 'grid' ? (
+        {/*
+          Both layouts stay mounted; the inactive one is hidden via CSS (display:none)
+          instead of being unmounted. This prevents the CameraTile WebSockets from
+          closing/reopening every time the user toggles grid <-> L+MAIN, which
+          otherwise makes every camera visibly "restart" (frames drop while the
+          WS re-handshakes). FFmpeg streams on the backend are shared, so having
+          two subscribers per camera costs nothing extra.
+        */}
+        <div className={viewMode === 'grid' ? 'h-full flex flex-col flex-1 min-h-0' : 'hidden'}>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={cameraIds} strategy={rectSortingStrategy}>
               <div
@@ -262,7 +286,8 @@ export function Dashboard() {
               </div>
             </SortableContext>
           </DndContext>
-        ) : (
+        </div>
+        <div className={viewMode === 'lmain' ? 'h-full flex flex-col flex-1 min-h-0' : 'hidden'}>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <div ref={lmainRef} className="flex-1 flex flex-col min-h-0" style={{ gap: LMAIN_GAP }}>
               <div className="flex flex-1 min-h-0" style={{ gap: LMAIN_GAP }}>
@@ -348,7 +373,7 @@ export function Dashboard() {
               </div>
             </div>
           </DndContext>
-        )}
+        </div>
       </div>
 
       {ptzCamera !== null && (

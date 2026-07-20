@@ -4,7 +4,7 @@ import shutil
 from dataclasses import dataclass, field
 from fastapi import WebSocket
 
-from backend.config import load_settings, build_rtsp_url, get_camera_by_id
+from backend.config import load_settings, build_mjpeg_rtsp_url, get_camera_by_id
 
 logger = logging.getLogger("mjpeg_manager")
 
@@ -116,7 +116,7 @@ class MjpegStreamManager:
         if cam is None:
             return
 
-        rtsp_url = build_rtsp_url(cam)
+        rtsp_url = build_mjpeg_rtsp_url(cam)
 
         try:
             proc = await asyncio.create_subprocess_exec(

@@ -1,101 +1,29 @@
 {
   "cameras": [
     {
-      "name": "c200n2 trailer",
-      "ip": "10.10.10.51",
-      "user": "c200n1",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C500"
-    },
-    {
-      "name": "C5002",
-      "ip": "10.10.10.52",
-      "user": "c500n2",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C500"
-    },
-    {
-      "name": "c200 trailer",
-      "ip": "10.10.10.53",
-      "user": "c200n2",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C200"
-    },
-    {
-      "name": "500n4",
-      "ip": "10.10.10.55",
-      "user": "c500n4",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C500"
-    },
-    {
-      "name": "C500N3",
-      "ip": "10.10.10.54",
-      "user": "c500n3",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C500"
-    },
-    {
-      "name": "MPFM 40401",
-      "ip": "10.10.20.51",
-      "user": "mpfm40401",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C500"
-    },
-    {
-      "name": "MPFM 2",
-      "ip": "10.10.20.52",
-      "user": "mpfm40402",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C500"
-    },
-    {
-      "name": "base",
+      "id": "b722100b",
+      "name": "mpfm40401",
       "ip": "192.168.239.51",
-      "user": "c200n1",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "C200"
-    },
-    {
-      "id": "9a5d03e7",
-      "name": "MPFM 10801 ",
-      "ip": "10.10.30.51",
-      "user": "mpfm10801",
+      "user": "mpfm40401",
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
       "model": "c500"
     },
     {
-      "id": "eb4b7821",
-      "name": "BASE MPFM",
-      "ip": "192.168.239.51",
-      "user": "mpfm40401",
+      "id": "0d35cf6a",
+      "name": "mpfm4040 2 ",
+      "ip": "192.168.239.52",
+      "user": "mpfm40402",
       "password": "agar1212",
       "cloud_password": "",
       "enabled": true,
-      "model": "C500"
+      "model": ""
     }
   ],
   "grid_size": 4,
   "theme": "dark",
   "view_mode": "lmain",
-  "main_camera": "c1d2e3f4",
+  "main_camera": "b722100b",
   "recording_retention_days": 7
 }

@@ -17,15 +17,22 @@ export function Config() {
   useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
-    if (editing !== null) {
-      await api.updateCamera(editing, form);
-    } else {
-      await api.addCamera(form);
+    const ip = (form.ip || '').trim();
+    if (!ip) { alert('La IP es obligatoria'); return; }
+    try {
+      if (editing !== null) {
+        await api.updateCamera(editing, form);
+      } else {
+        await api.addCamera(form);
+      }
+      setShowForm(false);
+      setEditing(null);
+      setForm({ name: '', ip: '', user: '', password: '', model: '' });
+      load();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al guardar';
+      alert(msg);
     }
-    setShowForm(false);
-    setEditing(null);
-    setForm({ name: '', ip: '', user: '', password: '', model: '' });
-    load();
   };
 
   const handleDelete = async (id: string) => {

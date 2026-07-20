@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from backend.config import load_settings, build_rtsp_url, get_camera_by_id
+from backend.config import load_settings, build_mjpeg_rtsp_url, get_camera_by_id
 from backend.services.stream_manager import stream_manager
 
 router = APIRouter(prefix="/api/stream", tags=["stream"])
@@ -11,7 +11,8 @@ def start_stream(camera_id: str):
     cam = get_camera_by_id(camera_id)
     if cam is None:
         raise HTTPException(status_code=404, detail="Camera not found")
-    url = build_rtsp_url(cam)
+    # Use the sub stream (stream2) so HLS can run while the DVR records on stream1.
+    url = build_mjpeg_rtsp_url(cam)
     result = stream_manager.start(camera_id, url)
     return result
 

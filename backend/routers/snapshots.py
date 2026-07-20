@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from backend.config import load_settings, build_rtsp_url, get_camera_by_id
+from backend.config import load_settings, build_mjpeg_rtsp_url, get_camera_by_id
 from backend.services.snapshot_service import snapshot_service
 
 router = APIRouter(prefix="/api/snapshots", tags=["snapshots"])
@@ -24,5 +24,7 @@ def take_snapshot(camera_id: str):
     cam = get_camera_by_id(camera_id)
     if cam is None:
         raise HTTPException(status_code=404, detail="Camera not found")
-    url = build_rtsp_url(cam)
+    # Use the sub stream (stream2) so a snapshot can be captured even while
+    # the DVR is recording on the main stream (stream1).
+    url = build_mjpeg_rtsp_url(cam)
     return snapshot_service.capture(url, cam.get("name", f"cam{camera_id}"))

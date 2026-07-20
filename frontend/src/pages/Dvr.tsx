@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Video, Play, Square, Film, Trash2, RefreshCw,
+  Video, Play, Film, Trash2, RefreshCw,
   ChevronLeft, ChevronRight, Circle, X, Download, Loader2,
 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -264,7 +264,6 @@ export function Dvr() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [hours, setHours] = useState<HourSegment[]>([]);
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
-  const [recording, setRecording] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [lastCleanup, setLastCleanup] = useState<string | null>(null);
@@ -301,15 +300,6 @@ export function Dvr() {
     }
   }, [selectedCamera]);
 
-  const loadRecordingStatus = useCallback(async () => {
-    try {
-      const s = await api.recordingStatus(selectedCamera);
-      setRecording(s.recording);
-    } catch {
-      setRecording(false);
-    }
-  }, [selectedCamera]);
-
   useEffect(() => {
     loadCameras();
   }, [loadCameras]);
@@ -317,11 +307,10 @@ export function Dvr() {
   useEffect(() => {
     if (!selectedCamera) return;
     loadCalendar();
-    loadRecordingStatus();
     setSelectedDate(null);
     setHours([]);
     setSelectedHour(null);
-  }, [selectedCamera, loadCalendar, loadRecordingStatus]);
+  }, [selectedCamera, loadCalendar]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -333,25 +322,9 @@ export function Dvr() {
     }
   }, [selectedDate, loadHours]);
 
-  const toggleRecording = async () => {
-    if (recording) {
-      try {
-        await api.stopRecording(selectedCamera);
-        setRecording(false);
-      } catch {}
-    } else {
-      try {
-        await api.startRecording(selectedCamera);
-        setRecording(true);
-        setTimeout(loadCalendar, 2000);
-      } catch {}
-    }
-  };
-
   const refreshCalendar = () => {
     loadCalendar();
     if (selectedDate) loadHours(selectedDate);
-    loadRecordingStatus();
   };
 
   const handleCleanup = async () => {
@@ -398,12 +371,13 @@ export function Dvr() {
         <div className="flex items-center gap-3">
           <Video size={20} className="text-accent" />
           <h1 className="text-lg font-bold text-text-primary">DVR - Grabacion continua</h1>
-          {recording && (
-            <div className="flex items-center gap-1.5 bg-recording/20 px-2 py-1 rounded border border-recording/40">
-              <div className="w-1.5 h-1.5 rounded-full bg-recording animate-pulse" />
-              <span className="text-[10px] font-bold text-recording">REC</span>
-            </div>
-          )}
+          <div
+            className="flex items-center gap-1.5 bg-recording/20 px-2 py-1 rounded border border-recording/40"
+            title="Las camaras graban siempre. El DVR no se puede detener."
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-recording animate-pulse" />
+            <span className="text-[10px] font-bold text-recording">REC</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -415,13 +389,6 @@ export function Dvr() {
               <option key={c.id} value={c.id}>{c.name || `Cam ${c.id}`}</option>
             ))}
           </select>
-          <button
-            onClick={toggleRecording}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all bg-recording/20 text-recording border border-recording/40 hover:bg-recording/30"
-          >
-            {recording ? <Square size={14} /> : <Play size={14} />}
-            {recording ? 'Detener DVR' : 'Iniciar DVR'}
-          </button>
           <button
             onClick={refreshCalendar}
             className="p-2 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all"

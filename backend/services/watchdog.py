@@ -203,6 +203,10 @@ class Watchdog:
             if not camera_id or not cam.get("enabled", True):
                 continue
             if not self._recording_service.is_recording(camera_id):
+                # Always-on: start any enabled camera that is not recording.
+                rtsp_url = build_rtsp_url(cam)
+                result = self._recording_service.start(camera_id, rtsp_url, cam.get("name", f"cam{camera_id}"))
+                logger.info(f"Camera {camera_id} ({cam.get('name', '?')}) recording auto-started by watchdog: {result.get('success')}")
                 continue
 
             status = self._get_or_create(camera_id, "recording")

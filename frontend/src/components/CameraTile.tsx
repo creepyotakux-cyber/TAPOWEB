@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CameraOff, Radio, Square, Maximize2, Settings, Aperture, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Camera, CameraOff, Radio, Maximize2, Settings, Aperture, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useMjpegWs } from '../hooks/useMjpegWs';
 import { api } from '../lib/api';
 import type { WatchdogStatus } from '../lib/api';
@@ -20,7 +20,6 @@ interface Props {
 
 export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFullscreenEnter, onFullscreenExit, onFocus, onBlur, className, compact }: Props) {
   const { canvasRef, playing, error } = useMjpegWs(wsUrl);
-  const [recording, setRecording] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -57,16 +56,6 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
       }
     } catch {}
   }, []);
-
-  const handleRecord = async () => {
-    if (recording) {
-      await api.stopRecording(cameraId);
-      setRecording(false);
-    } else {
-      await api.startRecording(cameraId);
-      setRecording(true);
-    }
-  };
 
   const handleSnapshot = async () => {
     await api.takeSnapshot(cameraId);
@@ -126,12 +115,10 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
         </div>
       )}
 
-      {recording && (
-        <div className="absolute top-2 right-2 flex items-center gap-1 bg-recording/90 px-2 py-0.5 rounded text-white text-xs font-bold">
-          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          REC
-        </div>
-      )}
+      <div className="absolute top-2 right-2 flex items-center gap-1 bg-recording/90 px-2 py-0.5 rounded text-white text-xs font-bold">
+        <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+        REC
+      </div>
 
       <div className={`absolute bottom-0 left-0 right-0 bg-surface/90 backdrop-blur-sm border-t border-glass-border px-3 py-1.5 flex items-center justify-between ${compact ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-200' : ''}`}>
         <div className="flex items-center gap-2">
@@ -156,9 +143,6 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
           </button>
           <button onClick={() => { handleSnapshot(); setMenuOpen(false); }} className="w-full px-4 py-2 text-left text-sm hover:bg-accent-bg hover:text-accent flex items-center gap-2">
             <Aperture size={14} /> Snapshot
-          </button>
-          <button onClick={() => { handleRecord(); setMenuOpen(false); }} className="w-full px-4 py-2 text-left text-sm hover:bg-accent-bg hover:text-accent flex items-center gap-2">
-            <Square size={14} /> {recording ? 'Detener grabacion' : 'Grabar'}
           </button>
           <button onClick={() => { enterFullscreen(); setMenuOpen(false); }} className="w-full px-4 py-2 text-left text-sm hover:bg-accent-bg hover:text-accent flex items-center gap-2">
             <Maximize2 size={14} /> Pantalla completa

@@ -16,6 +16,11 @@ def add_camera(cam: CameraCreate):
     new_cam = {**DEFAULT_CAMERA, **cam.model_dump(), "id": generate_id()}
     if not new_cam["name"]:
         new_cam["name"] = f"Cam{len(settings['cameras']) + 1}"
+    new_ip = (new_cam.get("ip") or "").strip()
+    if new_ip:
+        for existing in settings.get("cameras", []):
+            if (existing.get("ip") or "").strip() == new_ip:
+                raise HTTPException(status_code=409, detail=f"Ya existe una camara con la IP {new_ip}")
     settings["cameras"].append(new_cam)
     save_settings(settings)
     return {"success": True, "cameras": settings["cameras"]}
@@ -71,6 +76,13 @@ def update_settings(body: dict):
 def update_camera(camera_id: str, cam: CameraUpdate):
     settings = load_settings()
     cameras = settings.get("cameras", [])
+    new_ip = (cam.ip or "").strip() if cam.ip is not None else None
+    if new_ip:
+        for existing in cameras:
+            if existing.get("id") == camera_id:
+                continue
+            if (existing.get("ip") or "").strip() == new_ip:
+                raise HTTPException(status_code=409, detail=f"Otra camara ya usa la IP {new_ip}")
     for i, c in enumerate(cameras):
         if c.get("id") == camera_id:
             updates = {k: v for k, v in cam.model_dump().items() if v is not None}

@@ -12,3 +12,12 @@ dist/
 .pytest_cache/
 .mypy_cache/
 .venv/
+
+# Runtime data (urls, snapshots, recordings) — go to ~/Documents/TAPO/RECORDS
+backend/data/recordings/
+backend/data/hls/
+backend/data/snapshots/
+
+# Local agent/workspace cruft
+.opencode/
+test_cam.jpg
