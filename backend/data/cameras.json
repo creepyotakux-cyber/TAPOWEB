@@ -1,6 +1,16 @@
 {
   "cameras": [
     {
+      "id": "d0800298",
+      "name": "PRUEBA",
+      "ip": "192.168.2.135",
+      "user": "prueba",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
       "id": "b722100b",
       "name": "mpfm40401",
       "ip": "192.168.239.51",
@@ -19,16 +29,6 @@
       "cloud_password": "",
       "enabled": true,
       "model": ""
-    },
-    {
-      "id": "d0800298",
-      "name": "PRUEBA",
-      "ip": "192.168.2.135",
-      "user": "prueba",
-      "password": "agar1212",
-      "cloud_password": "",
-      "enabled": true,
-      "model": "c500"
     },
     {
       "id": "336c45bf",

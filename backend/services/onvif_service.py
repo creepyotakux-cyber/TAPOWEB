@@ -1,6 +1,9 @@
 import threading
 import time
+import logging
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger("onvif_service")
 
 
 class OnvifService:
@@ -213,6 +216,44 @@ class OnvifService:
     def stop_patrol(self):
         if self._patrol_stop:
             self._patrol_stop.set()
+
+    def patrol_sweep(self, speed: float = 0.5, step_time: float = 1.5,
+                     pause_time: float = 1.0, dwell_time: float = 4.0,
+                     steps_per_direction: int = 6):
+        self.stop_patrol()
+        self.stop_cruise()
+        self._patrol_stop = threading.Event()
+        stop = self._patrol_stop
+        logger.info("patrol_sweep START speed=%.2f step=%.1fs pause=%.1fs dwell=%.1fs steps/dir=%d",
+                    speed, step_time, pause_time, dwell_time, steps_per_direction)
+
+        def _loop():
+            direction = 1
+            cycle = 0
+            while not stop.is_set():
+                cycle += 1
+                logger.info("patrol_sweep cycle=%d direction=%d", cycle, direction)
+                for step in range(steps_per_direction):
+                    if stop.is_set():
+                        break
+                    ok = self.continuous_move(direction * speed, 0)
+                    if not ok:
+                        logger.warning("patrol_sweep step=%d continuous_move failed, aborting", step+1)
+                        return
+                    if stop.wait(step_time):
+                        break
+                    self.stop()
+                    if stop.wait(pause_time):
+                        break
+                if stop.is_set():
+                    break
+                self.stop()
+                logger.info("patrol_sweep dwell %.1fs at extreme", dwell_time)
+                if stop.wait(dwell_time):
+                    break
+                direction *= -1
+
+        threading.Thread(target=_loop, daemon=True, name="onvif-patrol-sweep").start()
 
     def disconnect(self):
         self.stop_patrol()

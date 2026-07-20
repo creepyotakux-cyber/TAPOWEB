@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, LayoutGrid, Columns, GripVertical } from 'lucide-react';
+import { RefreshCw, LayoutGrid, Columns, GripVertical, Radar } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -21,6 +21,7 @@ import type { Camera, WatchdogStatus, MjpegStatus } from '../lib/api';
 import { CameraTile } from '../components/CameraTile';
 import { PTZPanel } from '../components/PTZPanel';
 import { useKeyboardPtz } from '../hooks/useKeyboardPtz';
+import { usePtzWs } from '../hooks/usePtzWs';
 
 const THUMB_HEIGHT = 160;
 const LEFT_WIDTH = 270;
@@ -117,6 +118,34 @@ watchdog={watchdog}
   );
 }
 
+function SweepLauncher({ cameraId, active }: { cameraId: string; active: boolean }) {
+  const ptz = usePtzWs(cameraId);
+  const sentRef = useRef(false);
+
+  useEffect(() => {
+    if (active && ptz.connected && !sentRef.current) {
+      ptz.patrolSweep(0.5);
+      sentRef.current = true;
+    }
+    if (!active && sentRef.current) {
+      ptz.stopSweep();
+      sentRef.current = false;
+    }
+  }, [active, ptz.connected, ptz.patrolSweep, ptz.stopSweep]);
+
+  useEffect(() => {
+    sentRef.current = false;
+  }, [cameraId]);
+
+  useEffect(() => {
+    return () => {
+      if (sentRef.current) ptz.stopSweep();
+    };
+  }, [ptz.stopSweep]);
+
+  return null;
+}
+
 export function Dashboard() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [gridSize, setGridSize] = useState(4);
@@ -126,11 +155,36 @@ export function Dashboard() {
   const [focusedCamera, setFocusedCamera] = useState<string | null>(null);
   const [watchdogMap, setWatchdogMap] = useState<Map<string, WatchdogStatus>>(new Map());
   const [mjpegMap, setMjpegMap] = useState<Map<string, MjpegStatus>>(new Map());
+  const [sweepActive, setSweepActive] = useState(false);
+  const [sweepCameraIds, setSweepCameraIds] = useState<string[]>([]);
 
   const lmainRef = useRef<HTMLDivElement>(null);
 
   const cameraIds = cameras.map(c => c.id);
   const { connected: kbPtzConnected } = useKeyboardPtz(cameraIds, focusedCamera);
+
+  const toggleSweep = useCallback(() => {
+    if (!cameras.length) return;
+    if (sweepActive) {
+      setSweepActive(false);
+    } else {
+      const targets = cameras
+        .filter(c => mjpegMap.get(c.id)?.has_signal)
+        .map(c => c.id);
+      if (targets.length === 0) {
+        for (const c of cameras) targets.push(c.id);
+      }
+      setSweepCameraIds(targets);
+      setSweepActive(true);
+    }
+  }, [sweepActive, cameras, mjpegMap]);
+
+  useEffect(() => {
+    if (!sweepActive && sweepCameraIds.length > 0) {
+      const t = setTimeout(() => setSweepCameraIds([]), 300);
+      return () => clearTimeout(t);
+    }
+  }, [sweepActive, sweepCameraIds.length]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -254,6 +308,14 @@ export function Dashboard() {
                 {[2,3,4,5,6].map(n => <option key={n} value={n}>{n}x{n}</option>)}
               </select>
             )}
+            <button
+              onClick={toggleSweep}
+              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-all ${sweepActive ? 'bg-accent text-white border-accent' : 'bg-elevated border-glass-border hover:border-accent'}`}
+              title={sweepActive ? `Detener patrullaje en ${sweepCameraIds.length} camaras` : 'Patrullaje horizontal en todas las camaras disponibles'}
+            >
+              <Radar size={14} className={sweepActive ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">{sweepActive ? `Detener (${sweepCameraIds.length})` : 'Patrullaje'}</span>
+            </button>
             <button onClick={load} className="p-1.5 bg-elevated border border-glass-border hover:border-accent rounded-lg transition-all">
               <RefreshCw size={14} />
             </button>
@@ -393,6 +455,9 @@ export function Dashboard() {
       {ptzCamera !== null && (
         <PTZPanel cameraId={ptzCamera} cameraName={cameras.find(c => c.id === ptzCamera)?.name ?? ''} onClose={() => setPtzCamera(null)} />
       )}
+      {sweepCameraIds.map(id => (
+        <SweepLauncher key={id} cameraId={id} active={sweepActive} />
+      ))}
     </div>
   );
 }

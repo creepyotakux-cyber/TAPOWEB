@@ -74,8 +74,10 @@ export function usePtzWs(cameraId: string | null) {
   const stopCruise = useCallback(() => send({ action: 'stop_cruise' }), [send]);
   const patrol = useCallback((tokens: string[], interval?: number) => send({ action: 'patrol', tokens, interval: interval ?? 10 }), [send]);
   const stopPatrol = useCallback(() => send({ action: 'stop_patrol' }), [send]);
+  const patrolSweep = useCallback((speed?: number) => send({ action: 'patrol_sweep', speed: speed ?? 0.5 }), [send]);
+  const stopSweep = useCallback(() => send({ action: 'stop_sweep' }), [send]);
   const ledOn = useCallback(() => send({ action: 'led_on' }), [send]);
   const ledOff = useCallback(() => send({ action: 'led_off' }), [send]);
 
-  return { connected, error, led, lastOk, move, stop, home, gotoPreset, setPreset, removePreset, cruiseH, cruiseV, stopCruise, patrol, stopPatrol, ledOn, ledOff };
+  return { connected, error, led, lastOk, move, stop, home, gotoPreset, setPreset, removePreset, cruiseH, cruiseV, stopCruise, patrol, stopPatrol, patrolSweep, stopSweep, ledOn, ledOff };
 }

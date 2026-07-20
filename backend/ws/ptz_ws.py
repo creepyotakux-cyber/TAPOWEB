@@ -111,6 +111,14 @@ async def ptz_websocket(websocket: WebSocket, camera_id: str):
                 case "stop_patrol":
                     onvif.stop_patrol()
                     await websocket.send_json({"ok": True})
+                case "patrol_sweep":
+                    speed = float(data.get("speed", 0.5))
+                    onvif.patrol_sweep(speed=speed)
+                    await websocket.send_json({"ok": True})
+                case "stop_sweep":
+                    onvif.stop_patrol()
+                    onvif.stop_cruise()
+                    await websocket.send_json({"ok": True})
                 case "presets":
                     loop = asyncio.get_event_loop()
                     presets = await loop.run_in_executor(None, onvif.get_presets)
