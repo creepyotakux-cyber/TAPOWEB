@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Home, Lightbulb, LightbulbOff, Compass, CircleDot, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Home, Lightbulb, LightbulbOff, Compass, CircleDot, X, AlertTriangle } from 'lucide-react';
 import { usePtzWs } from '../hooks/usePtzWs';
 import { api } from '../lib/api';
 import type { Preset } from '../lib/api';
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
-  const { connected, led, move, stop, home, gotoPreset, setPreset, cruiseH, cruiseV, stopCruise, patrol, stopPatrol, ledOn, ledOff } = usePtzWs(cameraId);
+  const { connected, error, led, move, stop, home, gotoPreset, setPreset, cruiseH, cruiseV, stopCruise, patrol, stopPatrol, ledOn, ledOff } = usePtzWs(cameraId);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState('');
   const [patrolInterval, setPatrolInterval] = useState(10);
@@ -58,9 +58,18 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
         <button onClick={onClose} className="p-1 hover:bg-elevated rounded-lg"><X size={16} /></button>
       </div>
 
-      {!connected && (
+      {!connected && !error && (
         <div className="text-center py-8 text-text-muted text-xs">
           Conectando a ONVIF...
+        </div>
+      )}
+
+      {!connected && error && (
+        <div className="text-center py-8 px-4 flex flex-col gap-2">
+          <AlertTriangle size={24} className="text-danger mx-auto" />
+          <span className="text-danger text-xs font-semibold">Sin conexion ONVIF</span>
+          <span className="text-text-muted text-[10px] leading-relaxed">{error}</span>
+          <span className="text-text-muted text-[10px]">Reintentando automaticamente...</span>
         </div>
       )}
 

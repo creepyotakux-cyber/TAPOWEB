@@ -5,6 +5,8 @@ from backend.services.onvif_service import OnvifService
 
 _connections: dict[str, OnvifService] = {}
 
+ONVIF_CONNECT_TIMEOUT = 12.0
+
 
 def _log(msg):
     print(f"[PTZ-WS] {msg}", flush=True)
@@ -35,9 +37,15 @@ async def ptz_websocket(websocket: WebSocket, camera_id: str):
             _log(f"Connecting ONVIF to {cam['ip']}...")
             try:
                 loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
-                    None, lambda: onvif.connect(cam["ip"], cam["user"], cam["password"])
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None, lambda: onvif.connect(cam["ip"], cam["user"], cam["password"])
+                    ),
+                    timeout=ONVIF_CONNECT_TIMEOUT,
                 )
+            except asyncio.TimeoutError:
+                _log(f"ONVIF connect timeout after {ONVIF_CONNECT_TIMEOUT}s")
+                result = {"success": False, "error": "ONVIF connection timeout"}
             except Exception as e:
                 _log(f"ONVIF connect exception: {e}")
                 result = {"success": False, "error": str(e)}
