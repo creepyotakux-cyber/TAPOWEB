@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import shutil
+import time
 from dataclasses import dataclass, field
 from fastapi import WebSocket
 
@@ -9,10 +10,16 @@ from backend.config import load_settings, build_mjpeg_rtsp_url, get_camera_by_id
 logger = logging.getLogger("mjpeg_manager")
 
 GRACE_PERIOD = 10.0
-QUEUE_MAXSIZE = 2
-READ_CHUNK = 32768
-BUF_LIMIT = 153600
+QUEUE_MAXSIZE = 3
+READ_CHUNK = 65536
+BUF_LIMIT = 262144
 MIN_FRAME = 256
+SEND_TIMEOUT = 5.0
+SUBSCRIBER_TIMEOUT = 20.0
+HEARTBEAT_INTERVAL = 10.0
+SIGNAL_AGE_SECONDS = 8.0
+RESTART_BACKOFF_INITIAL = 2.0
+RESTART_BACKOFF_MAX = 60.0
 
 
 def _ffmpeg() -> str:
@@ -33,14 +40,13 @@ def _cmd(rtsp_url: str) -> list[str]:
         "-timeout", "15000000",
         "-fflags", "nobuffer",
         "-flags", "low_delay",
-        "-probesize", "32000",
-        "-analyzeduration", "500000",
+        "-probesize", "1000000",
+        "-analyzeduration", "1000000",
         "-i", rtsp_url,
         "-an",
         "-vf", "scale=640:-2",
         "-c:v", "mjpeg",
-        "-q:v", "8",
-        "-r", "12",
+        "-q:v", "6",
         "-f", "image2pipe",
         "pipe:1",
     ]
@@ -49,11 +55,12 @@ def _cmd(rtsp_url: str) -> list[str]:
 @dataclass
 class _CameraStream:
     process: asyncio.subprocess.Process | None = None
-    reader_task: asyncio.Task | None = None
+    runner_task: asyncio.Task | None = None
     subscribers: dict[WebSocket, asyncio.Queue] = field(default_factory=dict)
     last_frame: bytes | None = None
+    last_frame_at: float = 0.0
+    started_at: float = 0.0
     grace_task: asyncio.Task | None = None
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 class MjpegStreamManager:
@@ -72,8 +79,8 @@ class MjpegStreamManager:
                 stream.grace_task.cancel()
                 stream.grace_task = None
 
-            if stream.process is None or stream.process.returncode is not None:
-                await self._start_stream(camera_id, stream)
+            if stream.runner_task is None or stream.runner_task.done():
+                stream.runner_task = asyncio.create_task(self._runner(camera_id, stream))
 
             queue: asyncio.Queue = asyncio.Queue(maxsize=QUEUE_MAXSIZE)
             stream.subscribers[ws] = queue
@@ -85,16 +92,52 @@ class MjpegStreamManager:
                 await self._unsubscribe(camera_id, ws, stream)
                 return
 
+        ws_closed = False
+
+        async def heartbeat():
+            nonlocal ws_closed
+            while True:
+                await asyncio.sleep(HEARTBEAT_INTERVAL)
+                try:
+                    await ws.send_text("\x00")
+                except Exception:
+                    ws_closed = True
+                    try:
+                        queue.put_nowait(None)
+                    except asyncio.QueueFull:
+                        pass
+                    return
+
+        hb_task = asyncio.create_task(heartbeat())
         try:
             while True:
-                frame = await queue.get()
-                if frame is None:
+                try:
+                    frame = await asyncio.wait_for(queue.get(), timeout=SUBSCRIBER_TIMEOUT)
+                except asyncio.TimeoutError:
+                    if ws_closed or self._is_stream_dead(camera_id):
+                        break
+                    continue
+                if frame is None or ws_closed:
                     break
-                await ws.send_bytes(frame)
+                try:
+                    await asyncio.wait_for(ws.send_bytes(frame), timeout=SEND_TIMEOUT)
+                except (asyncio.TimeoutError, Exception):
+                    break
         except Exception:
             pass
         finally:
+            hb_task.cancel()
+            try:
+                await hb_task
+            except (asyncio.CancelledError, Exception):
+                pass
             await self._unsubscribe(camera_id, ws, stream)
+
+    def _is_stream_dead(self, camera_id: str) -> bool:
+        stream = self._streams.get(camera_id)
+        if stream is None:
+            return True
+        return stream.runner_task is None or stream.runner_task.done()
 
     async def _unsubscribe(self, camera_id: str, ws: WebSocket, stream: _CameraStream):
         async with self._global_lock:
@@ -111,27 +154,71 @@ class MjpegStreamManager:
         except asyncio.CancelledError:
             pass
 
-    async def _start_stream(self, camera_id: str, stream: _CameraStream):
-        cam = get_camera_by_id(camera_id)
-        if cam is None:
-            return
-
-        rtsp_url = build_mjpeg_rtsp_url(cam)
-
+    async def _runner(self, camera_id: str, stream: _CameraStream):
+        backoff = RESTART_BACKOFF_INITIAL
         try:
-            proc = await asyncio.create_subprocess_exec(
-                *_cmd(rtsp_url),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
-                stdin=asyncio.subprocess.DEVNULL,
-            )
-            stream.process = proc
-            stream.reader_task = asyncio.create_task(self._reader(camera_id, stream, proc))
-        except Exception as e:
-            logger.error("Failed to start FFmpeg for camera %s: %s", camera_id, e)
+            while True:
+                async with self._global_lock:
+                    if not stream.subscribers:
+                        return
+                    cam = get_camera_by_id(camera_id)
+                    if cam is None:
+                        return
+                    rtsp_url = build_mjpeg_rtsp_url(cam)
+                    stream.last_frame = None
+                    stream.last_frame_at = 0.0
+                    stream.started_at = time.monotonic()
 
-    async def _reader(self, camera_id: str, stream: _CameraStream, proc: asyncio.subprocess.Process):
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        *_cmd(rtsp_url),
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.DEVNULL,
+                        stdin=asyncio.subprocess.DEVNULL,
+                    )
+                except Exception as e:
+                    logger.error("Failed to start FFmpeg for camera %s: %s", camera_id, e)
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, RESTART_BACKOFF_MAX)
+                    continue
+
+                async with self._global_lock:
+                    stream.process = proc
+
+                produced = await self._pump(camera_id, stream, proc)
+
+                if proc.returncode is None:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                    try:
+                        await proc.wait()
+                    except Exception:
+                        pass
+
+                async with self._global_lock:
+                    stream.process = None
+                    if not stream.subscribers:
+                        return
+
+                if produced:
+                    backoff = RESTART_BACKOFF_INITIAL
+                else:
+                    logger.warning(
+                        "Camera %s MJPEG FFmpeg produced no frames, backing off %.1fs",
+                        camera_id, backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, RESTART_BACKOFF_MAX)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("MJPEG runner for camera %s crashed: %s", camera_id, e)
+
+    async def _pump(self, camera_id: str, stream: _CameraStream, proc: asyncio.subprocess.Process) -> bool:
         buf = b""
+        produced = False
         try:
             while True:
                 chunk = await proc.stdout.read(READ_CHUNK)
@@ -157,6 +244,8 @@ class MjpegStreamManager:
                     buf = buf[eoi + 2:]
                     if len(jpg) >= MIN_FRAME:
                         stream.last_frame = jpg
+                        stream.last_frame_at = time.monotonic()
+                        produced = True
                         for q in list(stream.subscribers.values()):
                             if q.full():
                                 try:
@@ -169,27 +258,27 @@ class MjpegStreamManager:
                                 pass
         except Exception:
             pass
-        finally:
-            for q in list(stream.subscribers.values()):
-                try:
-                    q.put_nowait(None)
-                except asyncio.QueueFull:
-                    pass
+        return produced
 
     async def _stop_stream(self, camera_id: str, stream: _CameraStream):
         self._streams.pop(camera_id, None)
-        if stream.reader_task:
-            stream.reader_task.cancel()
+        if stream.runner_task:
+            stream.runner_task.cancel()
             try:
-                await stream.reader_task
+                await stream.runner_task
             except (asyncio.CancelledError, Exception):
                 pass
+            stream.runner_task = None
         if stream.process and stream.process.returncode is None:
             try:
                 stream.process.kill()
+            except Exception:
+                pass
+            try:
                 await stream.process.wait()
             except Exception:
                 pass
+        stream.process = None
 
     async def shutdown(self):
         async with self._global_lock:
@@ -197,13 +286,29 @@ class MjpegStreamManager:
                 await self._stop_stream(cid, stream)
 
     def status(self) -> list[dict]:
+        now = time.monotonic()
         result = []
         for cid, stream in self._streams.items():
+            process_alive = stream.process is not None and stream.process.returncode is None
+            runner_alive = stream.runner_task is not None and not stream.runner_task.done()
+            has_signal = (
+                runner_alive
+                and stream.last_frame_at > 0
+                and (now - stream.last_frame_at) < SIGNAL_AGE_SECONDS
+            )
+            reconnecting = (
+                runner_alive
+                and not has_signal
+            )
+            last_frame_age = (now - stream.last_frame_at) if stream.last_frame_at > 0 else None
             result.append({
                 "camera_id": cid,
-                "active": stream.process is not None and stream.process.returncode is None,
+                "active": runner_alive,
                 "subscribers": len(stream.subscribers),
                 "pid": stream.process.pid if stream.process else None,
+                "has_signal": has_signal,
+                "reconnecting": reconnecting,
+                "last_frame_age_sec": last_frame_age,
             })
         return result
 

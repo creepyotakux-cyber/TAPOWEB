@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../lib/api';
-import type { Camera, WatchdogStatus } from '../lib/api';
+import type { Camera, WatchdogStatus, MjpegStatus } from '../lib/api';
 import { CameraTile } from '../components/CameraTile';
 import { PTZPanel } from '../components/PTZPanel';
 import { useKeyboardPtz } from '../hooks/useKeyboardPtz';
@@ -30,6 +30,7 @@ function SortableCameraTile({
   cam,
   wsUrl,
   watchdog,
+  mjpeg,
   viewMode,
   isMain,
   onOpenPtz,
@@ -43,6 +44,7 @@ function SortableCameraTile({
   cam: Camera;
   wsUrl: string;
   watchdog: WatchdogStatus | null;
+  mjpeg: MjpegStatus | null;
   viewMode: string;
   isMain: boolean;
   onOpenPtz: (id: string) => void;
@@ -79,7 +81,8 @@ function SortableCameraTile({
             cameraId={cam.id}
             name={cam.name}
             wsUrl={wsUrl}
-            watchdog={watchdog}
+watchdog={watchdog}
+            mjpeg={mjpeg}
             onOpenPtz={onOpenPtz}
             onFocus={onFocus}
             onBlur={onBlur}
@@ -105,6 +108,7 @@ function SortableCameraTile({
         name={cam.name}
         wsUrl={wsUrl}
         watchdog={watchdog}
+        mjpeg={mjpeg}
         onOpenPtz={onOpenPtz}
         onFocus={onFocus}
         onBlur={onBlur}
@@ -121,6 +125,7 @@ export function Dashboard() {
   const [ptzCamera, setPtzCamera] = useState<string | null>(null);
   const [focusedCamera, setFocusedCamera] = useState<string | null>(null);
   const [watchdogMap, setWatchdogMap] = useState<Map<string, WatchdogStatus>>(new Map());
+  const [mjpegMap, setMjpegMap] = useState<Map<string, MjpegStatus>>(new Map());
 
   const lmainRef = useRef<HTMLDivElement>(null);
 
@@ -161,11 +166,16 @@ export function Dashboard() {
   const pollWatchdog = useCallback(async () => {
     try {
       const h = await api.health();
-      const map = new Map<string, WatchdogStatus>();
+      const wmap = new Map<string, WatchdogStatus>();
       for (const s of h.watchdog) {
-        map.set(s.camera_id, s);
+        wmap.set(s.camera_id, s);
       }
-      setWatchdogMap(map);
+      setWatchdogMap(wmap);
+      const mmap = new Map<string, MjpegStatus>();
+      for (const s of (h.mjpeg ?? [])) {
+        mmap.set(s.camera_id, s);
+      }
+      setMjpegMap(mmap);
     } catch {}
   }, []);
 
@@ -271,6 +281,7 @@ export function Dashboard() {
                     cam={cam}
                     wsUrl={mjpegUrl(cam.id)}
                     watchdog={watchdogMap.get(cam.id) ?? null}
+                    mjpeg={mjpegMap.get(cam.id) ?? null}
                     viewMode="grid"
                     isMain={false}
                     onOpenPtz={setPtzCamera}
@@ -300,6 +311,7 @@ export function Dashboard() {
                           cam={cam}
                           wsUrl={mjpegUrl(cam.id)}
                           watchdog={watchdogMap.get(cam.id) ?? null}
+                    mjpeg={mjpegMap.get(cam.id) ?? null}
                           viewMode="lmain"
                           isMain={false}
                           onOpenPtz={setPtzCamera}
@@ -324,6 +336,7 @@ export function Dashboard() {
                         cam={mainCam}
                         wsUrl={mjpegUrl(mainCam.id)}
                         watchdog={watchdogMap.get(mainCam.id) ?? null}
+                        mjpeg={mjpegMap.get(mainCam.id) ?? null}
                         viewMode="lmain"
                         isMain={true}
                         onOpenPtz={setPtzCamera}
@@ -347,6 +360,7 @@ export function Dashboard() {
                         cam={cam}
                         wsUrl={mjpegUrl(cam.id)}
                         watchdog={watchdogMap.get(cam.id) ?? null}
+                    mjpeg={mjpegMap.get(cam.id) ?? null}
                         viewMode="lmain"
                         isMain={false}
                         onOpenPtz={setPtzCamera}

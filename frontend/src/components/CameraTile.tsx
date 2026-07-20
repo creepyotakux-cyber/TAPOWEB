@@ -2,13 +2,14 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, CameraOff, Radio, Maximize2, Settings, Aperture, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useMjpegWs } from '../hooks/useMjpegWs';
 import { api } from '../lib/api';
-import type { WatchdogStatus } from '../lib/api';
+import type { WatchdogStatus, MjpegStatus } from '../lib/api';
 
 interface Props {
   cameraId: string;
   name: string;
   wsUrl: string;
   watchdog: WatchdogStatus | null;
+  mjpeg: MjpegStatus | null;
   onOpenPtz: (id: string) => void;
   onFullscreenEnter?: (id: string) => void;
   onFullscreenExit?: () => void;
@@ -18,8 +19,8 @@ interface Props {
   compact?: boolean;
 }
 
-export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFullscreenEnter, onFullscreenExit, onFocus, onBlur, className, compact }: Props) {
-  const { canvasRef, playing, error } = useMjpegWs(wsUrl);
+export function CameraTile({ cameraId, name, wsUrl, watchdog, mjpeg, onOpenPtz, onFullscreenEnter, onFullscreenExit, onFocus, onBlur, className, compact }: Props) {
+  const { canvasRef, playing, reconnecting, error } = useMjpegWs(wsUrl);
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -27,6 +28,9 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
   const recovering = watchdog?.recovering ?? false;
   const blackDetected = watchdog?.black_detected ?? false;
   const failures = watchdog?.consecutive_failures ?? 0;
+
+  const hasSignal = playing || (mjpeg?.has_signal ?? false);
+  const isReconnecting = !hasSignal && ((mjpeg?.reconnecting ?? false) || reconnecting);
 
   useEffect(() => {
     const onFs = () => {
@@ -81,7 +85,7 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
         </button>
       )}
 
-      {recovering && (
+      {(isReconnecting || recovering) && !hasSignal && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/80 gap-2 z-10">
           <RefreshCw size={32} className="text-warning animate-spin" />
           <span className="text-warning text-sm font-semibold">Reconectando...</span>
@@ -91,7 +95,7 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
         </div>
       )}
 
-      {blackDetected && !recovering && (
+      {blackDetected && !isReconnecting && !recovering && !hasSignal && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/80 gap-2 z-10">
           <AlertTriangle size={32} className="text-danger" />
           <span className="text-danger text-sm font-semibold">Pantalla negra detectada</span>
@@ -99,7 +103,7 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
         </div>
       )}
 
-      {error && !playing && !recovering && (
+      {error && !hasSignal && !isReconnecting && !recovering && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/70 backdrop-blur-sm gap-2">
           <CameraOff size={32} className="text-text-muted" />
           <span className="text-text-muted text-sm">Sin senal</span>
@@ -107,9 +111,9 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
         </div>
       )}
 
-      {!playing && !error && !recovering && !blackDetected && (
+      {!hasSignal && !error && !isReconnecting && !recovering && !blackDetected && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/60 backdrop-blur-sm gap-2">
-          <Camera size={32} className="text-text-muted animate-pulse" />
+          <Camera size={32} className="text-text-muted" />
           <span className="text-text-muted text-sm">Sin conexion</span>
           <span className="text-text-muted text-[10px]">{name}</span>
         </div>
@@ -122,14 +126,15 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, onOpenPtz, onFulls
 
       <div className={`absolute bottom-0 left-0 right-0 bg-surface/90 backdrop-blur-sm border-t border-glass-border px-3 py-1.5 flex items-center justify-between ${compact ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-200' : ''}`}>
         <div className="flex items-center gap-2">
-          <Camera size={14} className={recovering ? 'text-warning' : blackDetected ? 'text-danger' : 'text-accent'} />
+          <Camera size={14} className={(isReconnecting || recovering) ? 'text-warning' : blackDetected ? 'text-danger' : hasSignal ? 'text-accent' : 'text-text-muted'} />
           <span className="text-xs font-semibold text-text-primary">{name}</span>
         </div>
         <div className="flex items-center gap-1">
-          {playing && !recovering && <Radio size={12} className="text-live" />}
-          {playing && !recovering && <span className="text-[10px] text-live font-bold">LIVE</span>}
-          {recovering && <RefreshCw size={12} className="text-warning animate-spin" />}
-          {recovering && <span className="text-[10px] text-warning font-bold">RETRY</span>}
+          {hasSignal && !isReconnecting && !recovering && <Radio size={12} className="text-live" />}
+          {hasSignal && !isReconnecting && !recovering && <span className="text-[10px] text-live font-bold">LIVE</span>}
+          {(isReconnecting || recovering) && <RefreshCw size={12} className="text-warning animate-spin" />}
+          {(isReconnecting || recovering) && <span className="text-[10px] text-warning font-bold">RETRY</span>}
+          {!hasSignal && !isReconnecting && !recovering && <span className="text-[10px] text-text-muted font-bold">OFFLINE</span>}
         </div>
       </div>
 

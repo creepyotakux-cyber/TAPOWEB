@@ -36,6 +36,16 @@ export interface WatchdogStatus {
   last_error: string;
 }
 
+export interface MjpegStatus {
+  camera_id: string;
+  active: boolean;
+  subscribers: number;
+  pid: number | null;
+  has_signal: boolean;
+  reconnecting: boolean;
+  last_frame_age_sec: number | null;
+}
+
 export interface Preset {
   token: string;
   name: string;
@@ -103,5 +113,5 @@ export const api = {
   getSnapshots: () => request<Snapshot[]>('/api/snapshots'),
   takeSnapshot: (id: string) => request(`/api/snapshots/${id}`, { method: 'POST' }),
 
-  health: () => request<{ status: string; streams: { camera_id: string; active: boolean; pid: number | null }[]; watchdog: WatchdogStatus[] }>('/api/health'),
+  health: () => request<{ status: string; streams: { camera_id: string; active: boolean; pid: number | null }[]; watchdog: WatchdogStatus[]; mjpeg: MjpegStatus[] }>('/api/health'),
 };

@@ -3,34 +3,38 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 export function useMjpegWs(wsUrl: string | null) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [error, setError] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const urlRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
-  const latestFrameRef = useRef<ArrayBuffer | null>(null);
-  const renderScheduledRef = useRef(false);
+  const pendingRef = useRef<ArrayBuffer | null>(null);
+  const renderingRef = useRef(false);
   const rafIdRef = useRef<number | null>(null);
+  const playingRef = useRef(false);
 
   const cleanup = useCallback(() => {
     if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
     if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
     if (rafIdRef.current !== null) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null; }
-    renderScheduledRef.current = false;
-    latestFrameRef.current = null;
+    renderingRef.current = false;
+    pendingRef.current = null;
     retryCountRef.current = 0;
+    playingRef.current = false;
     setPlaying(false);
+    setReconnecting(false);
   }, []);
 
   useEffect(() => {
     if (!wsUrl) return;
     urlRef.current = wsUrl;
 
-    const render = async () => {
-      renderScheduledRef.current = false;
-      const frame = latestFrameRef.current;
+    const drawFrame = async () => {
+      renderingRef.current = false;
+      const frame = pendingRef.current;
       if (!frame) return;
-      latestFrameRef.current = null;
+      pendingRef.current = null;
 
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -44,25 +48,36 @@ export function useMjpegWs(wsUrl: string | null) {
         ctx.drawImage(bitmap, 0, 0);
         bitmap.close();
       } catch {}
+
+      if (pendingRef.current && !renderingRef.current) {
+        renderingRef.current = true;
+        rafIdRef.current = requestAnimationFrame(drawFrame);
+      }
     };
 
     const connect = () => {
       if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
       if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
       setError(false);
+      setReconnecting(true);
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       ws.binaryType = 'arraybuffer';
 
-      ws.onopen = () => { setPlaying(true); setError(false); retryCountRef.current = 0; };
+      ws.onopen = () => { setError(false); retryCountRef.current = 0; };
 
       ws.onmessage = (e) => {
         if (!(e.data instanceof ArrayBuffer) || e.data.byteLength === 0) return;
-        latestFrameRef.current = e.data;
-        if (!renderScheduledRef.current) {
-          renderScheduledRef.current = true;
-          rafIdRef.current = requestAnimationFrame(render);
+        if (!playingRef.current) {
+          setPlaying(true);
+          setReconnecting(false);
+          playingRef.current = true;
+        }
+        pendingRef.current = e.data;
+        if (!renderingRef.current) {
+          renderingRef.current = true;
+          rafIdRef.current = requestAnimationFrame(drawFrame);
         }
       };
 
@@ -70,6 +85,8 @@ export function useMjpegWs(wsUrl: string | null) {
 
       ws.onclose = () => {
         setPlaying(false);
+        setReconnecting(true);
+        playingRef.current = false;
         if (urlRef.current === wsUrl) {
           const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000) + Math.random() * 1000;
           retryCountRef.current++;
@@ -82,5 +99,5 @@ export function useMjpegWs(wsUrl: string | null) {
     return cleanup;
   }, [wsUrl, cleanup]);
 
-  return { canvasRef, playing, error };
+  return { canvasRef, playing, reconnecting, error };
 }

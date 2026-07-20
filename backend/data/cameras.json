@@ -19,11 +19,41 @@
       "cloud_password": "",
       "enabled": true,
       "model": ""
+    },
+    {
+      "id": "d0800298",
+      "name": "PRUEBA",
+      "ip": "192.168.2.135",
+      "user": "prueba",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "id": "336c45bf",
+      "name": "MPFM 1080 1",
+      "ip": "10.10.30.57",
+      "user": "mpfm10801",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "id": "748902bb",
+      "name": "MPFM 1080 2 ",
+      "ip": "10.10.30.58",
+      "user": "mpfm10802",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
     }
   ],
   "grid_size": 4,
   "theme": "dark",
-  "view_mode": "lmain",
+  "view_mode": "grid",
   "main_camera": "b722100b",
   "recording_retention_days": 7
 }
