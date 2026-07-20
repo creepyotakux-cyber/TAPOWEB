@@ -73,7 +73,7 @@ class StreamStatus:
     __slots__ = ("camera_id", "kind", "active", "pid", "healthy", "last_check",
                  "consecutive_failures", "recovering", "black_detected", "last_error")
 
-    def __init__(self, camera_id: int, kind: str):
+    def __init__(self, camera_id: str, kind: str):
         self.camera_id = camera_id
         self.kind = kind
         self.active = False
@@ -101,8 +101,8 @@ class StreamStatus:
 
 class Watchdog:
     def __init__(self):
-        self._statuses: dict[tuple[int, str], StreamStatus] = {}
-        self._backoffs: dict[tuple[int, str], float] = {}
+        self._statuses: dict[tuple[str, str], StreamStatus] = {}
+        self._backoffs: dict[tuple[str, str], float] = {}
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._hls_manager = None
@@ -129,22 +129,22 @@ class Watchdog:
         with self._lock:
             return [s.to_dict() for s in self._statuses.values()]
 
-    def get_status_for(self, camera_id: int) -> list[dict]:
+    def get_status_for(self, camera_id: str) -> list[dict]:
         with self._lock:
             return [s.to_dict() for s in self._statuses.values() if s.camera_id == camera_id]
 
-    def _get_or_create(self, camera_id: int, kind: str) -> StreamStatus:
+    def _get_or_create(self, camera_id: str, kind: str) -> StreamStatus:
         key = (camera_id, kind)
         if key not in self._statuses:
             self._statuses[key] = StreamStatus(camera_id, kind)
         return self._statuses[key]
 
-    def _backoff_delay(self, key: tuple[int, str]) -> float:
+    def _backoff_delay(self, key: tuple[str, str]) -> float:
         delay = self._backoffs.get(key, INITIAL_BACKOFF)
         self._backoffs[key] = min(delay * 2, MAX_BACKOFF)
         return delay
 
-    def _reset_backoff(self, key: tuple[int, str]):
+    def _reset_backoff(self, key: tuple[str, str]):
         self._backoffs.pop(key, None)
 
     def _loop(self):
@@ -166,12 +166,11 @@ class Watchdog:
     def _check_hls(self, cameras: list[dict]):
         status_list = self._hls_manager.status()
         active_ids = {s["camera_id"] for s in status_list if s.get("active")}
+        cam_by_id = {c.get("id"): c for c in cameras}
 
         for camera_id in active_ids:
-            if camera_id >= len(cameras):
-                continue
-            cam = cameras[camera_id]
-            if not cam.get("enabled", True):
+            cam = cam_by_id.get(camera_id)
+            if cam is None or not cam.get("enabled", True):
                 continue
 
             status = self._get_or_create(camera_id, "hls")
@@ -199,9 +198,9 @@ class Watchdog:
                 self._handle_failure(camera_id, "hls", cam, reason, status)
 
     def _check_recordings(self, cameras: list[dict]):
-        for camera_id in range(len(cameras)):
-            cam = cameras[camera_id]
-            if not cam.get("enabled", True):
+        for cam in cameras:
+            camera_id = cam.get("id", "")
+            if not camera_id or not cam.get("enabled", True):
                 continue
             if not self._recording_service.is_recording(camera_id):
                 continue
@@ -223,7 +222,7 @@ class Watchdog:
             else:
                 self._handle_failure(camera_id, "recording", cam, "recording process died", status)
 
-    def _handle_failure(self, camera_id: int, kind: str, cam: dict, reason: str, status: StreamStatus):
+    def _handle_failure(self, camera_id: str, kind: str, cam: dict, reason: str, status: StreamStatus):
         status.consecutive_failures += 1
         status.healthy = False
         status.last_error = reason
@@ -248,7 +247,7 @@ class Watchdog:
         )
         t.start()
 
-    def _retry_after(self, delay: float, camera_id: int, kind: str, cam: dict):
+    def _retry_after(self, delay: float, camera_id: str, kind: str, cam: dict):
         if self._stop.wait(timeout=delay):
             return
 

@@ -7,27 +7,29 @@ interface CamWs {
   ready: boolean;
 }
 
-export function useKeyboardPtz(camerasCount: number, focusedCamera: number | null) {
-  const connsRef = useRef<Map<number, CamWs>>(new Map());
-  const focusedRef = useRef<number | null>(null);
+export function useKeyboardPtz(cameraIds: string[], focusedCamera: string | null) {
+  const connsRef = useRef<Map<string, CamWs>>(new Map());
+  const focusedRef = useRef<string | null>(null);
   const heldRef = useRef<Set<string>>(new Set());
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [connected, setConnected] = useState(false);
 
   focusedRef.current = focusedCamera;
 
+  const cameraIdsKey = cameraIds.join(',');
+
   useEffect(() => {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const conns = connsRef.current;
 
-    for (let i = 0; i < camerasCount; i++) {
-      if (conns.has(i)) continue;
-      const ws = new WebSocket(`${protocol}//${location.host}/ws/ptz/${i}`);
+    for (const id of cameraIds) {
+      if (conns.has(id)) continue;
+      const ws = new WebSocket(`${protocol}//${location.host}/ws/ptz/${id}`);
       const entry: CamWs = { ws, ready: false };
-      conns.set(i, entry);
+      conns.set(id, entry);
 
       ws.onopen = () => { entry.ready = true; };
-      ws.onclose = () => { entry.ready = false; conns.delete(i); };
+      ws.onclose = () => { entry.ready = false; conns.delete(id); };
       ws.onerror = () => { entry.ready = false; };
     }
 
@@ -35,7 +37,7 @@ export function useKeyboardPtz(camerasCount: number, focusedCamera: number | nul
       conns.forEach(e => e.ws.close());
       conns.clear();
     };
-  }, [camerasCount]);
+  }, [cameraIds, cameraIdsKey]);
 
   useEffect(() => {
     setConnected(false);

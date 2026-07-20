@@ -22,10 +22,11 @@ import { CameraTile } from '../components/CameraTile';
 import { PTZPanel } from '../components/PTZPanel';
 import { useKeyboardPtz } from '../hooks/useKeyboardPtz';
 
-const GAP = 8;
+const THUMB_HEIGHT = 160;
+const LEFT_WIDTH = 270;
+const LMAIN_GAP = 6;
 
 function SortableCameraTile({
-  index,
   cam,
   wsUrl,
   watchdog,
@@ -36,32 +37,36 @@ function SortableCameraTile({
   onBlur,
   onClick,
   tileHeight,
+  compact,
+  thumbWidth,
 }: {
-  index: number;
   cam: Camera;
   wsUrl: string;
   watchdog: WatchdogStatus | null;
   viewMode: string;
   isMain: boolean;
-  onOpenPtz: (id: number) => void;
-  onFocus: (id: number) => void;
+  onOpenPtz: (id: string) => void;
+  onFocus: (id: string) => void;
   onBlur: () => void;
   onClick?: () => void;
   tileHeight?: number;
+  compact?: boolean;
+  thumbWidth?: number;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: index });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cam.id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : 'auto',
-    ...(tileHeight ? { height: tileHeight, minHeight: tileHeight } : {}),
+    ...(!compact && tileHeight ? { height: tileHeight, minHeight: tileHeight } : {}),
+    ...(compact && thumbWidth ? { width: thumbWidth, minWidth: thumbWidth, maxWidth: thumbWidth } : {}),
   };
 
   if (viewMode === 'lmain' && !isMain) {
     return (
-      <div ref={setNodeRef} style={style} className="relative group h-full overflow-hidden">
+      <div ref={setNodeRef} style={style} className={`relative group h-full ${compact ? 'flex-1 min-h-0' : ''}`}>
         <div
           {...attributes}
           {...listeners}
@@ -71,7 +76,7 @@ function SortableCameraTile({
         </div>
         <div onClick={onClick} className="cursor-pointer h-full">
           <CameraTile
-            index={index}
+            cameraId={cam.id}
             name={cam.name}
             wsUrl={wsUrl}
             watchdog={watchdog}
@@ -79,6 +84,7 @@ function SortableCameraTile({
             onFocus={onFocus}
             onBlur={onBlur}
             className="min-h-0"
+            compact={compact}
           />
         </div>
       </div>
@@ -95,7 +101,7 @@ function SortableCameraTile({
         <GripVertical size={14} className="text-text-muted" />
       </div>
       <CameraTile
-        index={index}
+        cameraId={cam.id}
         name={cam.name}
         wsUrl={wsUrl}
         watchdog={watchdog}
@@ -111,36 +117,19 @@ export function Dashboard() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [gridSize, setGridSize] = useState(4);
   const [viewMode, setViewMode] = useState<'grid' | 'lmain'>('grid');
-  const [mainCamera, setMainCamera] = useState(0);
-  const [ptzCamera, setPtzCamera] = useState<number | null>(null);
-  const [focusedCamera, setFocusedCamera] = useState<number | null>(null);
-  const [watchdogMap, setWatchdogMap] = useState<Map<number, WatchdogStatus>>(new Map());
-  const [containerH, setContainerH] = useState(0);
+  const [mainCamera, setMainCamera] = useState('');
+  const [ptzCamera, setPtzCamera] = useState<string | null>(null);
+  const [focusedCamera, setFocusedCamera] = useState<string | null>(null);
+  const [watchdogMap, setWatchdogMap] = useState<Map<string, WatchdogStatus>>(new Map());
 
   const lmainRef = useRef<HTMLDivElement>(null);
 
-  const { connected: kbPtzConnected } = useKeyboardPtz(cameras.length, focusedCamera);
+  const cameraIds = cameras.map(c => c.id);
+  const { connected: kbPtzConnected } = useKeyboardPtz(cameraIds, focusedCamera);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
-
-  useEffect(() => {
-    if (viewMode !== 'lmain') return;
-    const el = lmainRef.current;
-    if (!el) return;
-
-    const measure = () => setContainerH(el.clientHeight);
-    measure();
-
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    window.addEventListener('resize', measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, [viewMode]);
 
   const load = useCallback(async () => {
     const cams = await api.getCameras();
@@ -148,7 +137,7 @@ export function Dashboard() {
     const s = await api.getSettings();
     setGridSize(s.grid_size);
     setViewMode(s.view_mode as 'grid' | 'lmain');
-    setMainCamera(Math.min(s.main_camera, Math.max(0, cams.length - 1)));
+    setMainCamera(s.main_camera || (cams.length > 0 ? cams[0].id : ''));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -156,7 +145,7 @@ export function Dashboard() {
   const pollWatchdog = useCallback(async () => {
     try {
       const h = await api.health();
-      const map = new Map<number, WatchdogStatus>();
+      const map = new Map<string, WatchdogStatus>();
       for (const s of h.watchdog) {
         map.set(s.camera_id, s);
       }
@@ -180,53 +169,33 @@ export function Dashboard() {
     const { active, over } = event;
     if (over === null || active.id === over.id) return;
 
-    const oldIndex = active.id as number;
-    const newIndex = over.id as number;
+    const oldIndex = cameras.findIndex(c => c.id === active.id);
+    const newIndex = cameras.findIndex(c => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
 
     setCameras(prev => arrayMove(prev, oldIndex, newIndex));
     api.reorderCameras(oldIndex, newIndex);
+  }, [cameras]);
 
-    if (mainCamera === oldIndex) {
-      setMainCamera(newIndex);
-      api.updateSettings({ main_camera: newIndex });
-    } else if (mainCamera > oldIndex && mainCamera <= newIndex) {
-      setMainCamera(mainCamera - 1);
-      api.updateSettings({ main_camera: mainCamera - 1 });
-    } else if (mainCamera < oldIndex && mainCamera >= newIndex) {
-      setMainCamera(mainCamera + 1);
-      api.updateSettings({ main_camera: mainCamera + 1 });
-    }
+  const handleColumnClick = useCallback((clickedId: string) => {
+    if (clickedId === mainCamera) return;
+    setMainCamera(clickedId);
+    api.updateSettings({ main_camera: clickedId });
   }, [mainCamera]);
 
-  const handleColumnClick = useCallback((clickedIndex: number) => {
-    if (clickedIndex === mainCamera) return;
-    const newCameras = [...cameras];
-    const mainCam = newCameras[mainCamera];
-    const clickedCam = newCameras[clickedIndex];
-    newCameras[mainCamera] = clickedCam;
-    newCameras[clickedIndex] = mainCam;
-
-    setCameras(newCameras);
-    api.reorderCameras(mainCamera, clickedIndex);
-  }, [cameras, mainCamera]);
-
   const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const mjpegUrl = (i: number) => `${wsProtocol}//${location.host}/ws/mjpeg/${i}`;
+  const mjpegUrl = (id: string) => `${wsProtocol}//${location.host}/ws/mjpeg/${id}`;
 
   const cols = gridSize;
-  const cameraIds = cameras.map((_, i) => i);
 
-  const otherIndices = cameras.map((_, i) => i).filter(i => i !== mainCamera);
+  const mainCam = cameras.find(c => c.id === mainCamera);
+  const otherCams = cameras.filter(c => c.id !== mainCamera);
 
-  const leftCount = Math.min(otherIndices.length, 4);
-  const bottomCount = Math.max(0, otherIndices.length - leftCount);
-  const leftIndices = otherIndices.slice(0, leftCount);
-  const bottomIndices = otherIndices.slice(leftCount);
+  const leftCount = Math.min(otherCams.length, 4);
+  const leftCams = otherCams.slice(0, leftCount);
+  const bottomCams = otherCams.slice(leftCount);
 
-  const tileSize = leftCount > 0
-    ? Math.max(80, Math.floor((containerH - (leftCount > 1 ? (leftCount - 1) * GAP : 0) - (bottomCount > 0 ? GAP : 0)) / (leftCount + (bottomCount > 0 ? 1 : 0))))
-    : 120;
-  const upperH = leftCount * tileSize + (leftCount > 1 ? (leftCount - 1) * GAP : 0);
+  const leftEmptyCount = Math.max(0, 4 - leftCams.length);
 
   return (
     <div className="h-full flex bg-void">
@@ -236,8 +205,8 @@ export function Dashboard() {
             <h1 className="text-lg font-bold text-text-primary">Sistema de Vigilancia AGARVEN</h1>
             <p className="text-xs text-text-muted">
               {cameras.length} camaras
-              {focusedCamera !== null && cameras[focusedCamera]
-                ? ` \u00b7 Flechas: ${cameras[focusedCamera].name}${kbPtzConnected ? ' \u2713' : ' ...'}`
+              {focusedCamera !== null && cameras.find(c => c.id === focusedCamera)
+                ? ` \u00b7 Flechas: ${cameras.find(c => c.id === focusedCamera)!.name}${kbPtzConnected ? ' \u2713' : ' ...'}`
                 : ' \u00b7 Hover para flechas PTZ'}
             </p>
           </div>
@@ -272,13 +241,12 @@ export function Dashboard() {
                 className="flex-1 grid gap-2"
                 style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: '1fr' }}
               >
-                {cameras.map((cam, i) => (
+                {cameras.map(cam => (
                   <SortableCameraTile
-                    key={i}
-                    index={i}
+                    key={cam.id}
                     cam={cam}
-                    wsUrl={mjpegUrl(i)}
-                    watchdog={watchdogMap.get(i) ?? null}
+                    wsUrl={mjpegUrl(cam.id)}
+                    watchdog={watchdogMap.get(cam.id) ?? null}
                     viewMode="grid"
                     isMain={false}
                     onOpenPtz={setPtzCamera}
@@ -296,74 +264,95 @@ export function Dashboard() {
           </DndContext>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <div ref={lmainRef} className="flex-1 flex flex-col gap-2 min-h-0">
-              <div className="flex gap-2" style={{ height: upperH, minHeight: upperH }}>
-                <div className="shrink-0 flex flex-col gap-2" style={{ width: 260 }}>
-                  <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
-                    {leftIndices.map(i => (
+            <div ref={lmainRef} className="flex-1 flex flex-col min-h-0" style={{ gap: LMAIN_GAP }}>
+              <div className="flex flex-1 min-h-0" style={{ gap: LMAIN_GAP }}>
+                <div className="shrink-0 flex flex-col" style={{ width: LEFT_WIDTH, gap: LMAIN_GAP }}>
+                  {leftCams.length > 0 && (
+                    <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
+                      {leftCams.map(cam => (
+                        <SortableCameraTile
+                          key={cam.id}
+                          cam={cam}
+                          wsUrl={mjpegUrl(cam.id)}
+                          watchdog={watchdogMap.get(cam.id) ?? null}
+                          viewMode="lmain"
+                          isMain={false}
+                          onOpenPtz={setPtzCamera}
+                          onFocus={setFocusedCamera}
+                          onBlur={() => setFocusedCamera(null)}
+                          onClick={() => handleColumnClick(cam.id)}
+                          compact
+                        />
+                      ))}
+                    </SortableContext>
+                  )}
+                  {Array.from({ length: leftEmptyCount }).map((_, i) => (
+                    <div key={`left-empty-${i}`} className="flex-1 border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all">
+                      <span className="text-text-muted text-sm">+</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex-1 min-w-0 h-full">
+                  {mainCam ? (
+                    <div className="h-full ring-1 ring-accent/20 rounded-lg overflow-hidden">
                       <SortableCameraTile
-                        key={i}
-                        index={i}
-                        cam={cameras[i]}
-                        wsUrl={mjpegUrl(i)}
-                        watchdog={watchdogMap.get(i) ?? null}
+                        cam={mainCam}
+                        wsUrl={mjpegUrl(mainCam.id)}
+                        watchdog={watchdogMap.get(mainCam.id) ?? null}
                         viewMode="lmain"
-                        isMain={false}
+                        isMain={true}
                         onOpenPtz={setPtzCamera}
                         onFocus={setFocusedCamera}
                         onBlur={() => setFocusedCamera(null)}
-                        onClick={() => handleColumnClick(i)}
-                        tileHeight={tileSize}
                       />
-                    ))}
-                  </SortableContext>
-                </div>
-                <div className="flex-1 min-w-0 h-full flex flex-col">
-                  {cameras.length > 0 && (
-                    <SortableCameraTile
-                      index={mainCamera}
-                      cam={cameras[mainCamera]}
-                      wsUrl={mjpegUrl(mainCamera)}
-                      watchdog={watchdogMap.get(mainCamera) ?? null}
-                      viewMode="lmain"
-                      isMain={true}
-                      onOpenPtz={setPtzCamera}
-                      onFocus={setFocusedCamera}
-                      onBlur={() => setFocusedCamera(null)}
-                      tileHeight={tileSize}
-                    />
+                    </div>
+                  ) : (
+                    <div className="h-full border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all">
+                      <span className="text-text-muted text-sm">Sin camara principal</span>
+                    </div>
                   )}
                 </div>
               </div>
-              {bottomCount > 0 && (
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${bottomCount}, 1fr)`, height: tileSize, minHeight: tileSize }}>
+              <div className="flex shrink-0 overflow-x-auto" style={{ gap: LMAIN_GAP, height: THUMB_HEIGHT }}>
+                {bottomCams.length > 0 && (
                   <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
-                    {bottomIndices.map(i => (
+                    {bottomCams.map(cam => (
                       <SortableCameraTile
-                        key={i}
-                        index={i}
-                        cam={cameras[i]}
-                        wsUrl={mjpegUrl(i)}
-                        watchdog={watchdogMap.get(i) ?? null}
+                        key={cam.id}
+                        cam={cam}
+                        wsUrl={mjpegUrl(cam.id)}
+                        watchdog={watchdogMap.get(cam.id) ?? null}
                         viewMode="lmain"
                         isMain={false}
                         onOpenPtz={setPtzCamera}
                         onFocus={setFocusedCamera}
                         onBlur={() => setFocusedCamera(null)}
-                        onClick={() => handleColumnClick(i)}
-                        tileHeight={tileSize}
+                        onClick={() => handleColumnClick(cam.id)}
+                        tileHeight={THUMB_HEIGHT}
+                        compact
+                        thumbWidth={LEFT_WIDTH}
                       />
                     ))}
                   </SortableContext>
-                </div>
-              )}
+                )}
+                {bottomCams.length === 0 && (
+                  <>
+                    <div className="border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all" style={{ width: LEFT_WIDTH, minWidth: LEFT_WIDTH }}>
+                      <span className="text-text-muted text-sm">+</span>
+                    </div>
+                    <div className="flex-1 border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all">
+                      <span className="text-text-muted text-sm">+</span>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </DndContext>
         )}
       </div>
 
       {ptzCamera !== null && (
-        <PTZPanel cameraId={ptzCamera} cameraName={cameras[ptzCamera]?.name ?? ''} onClose={() => setPtzCamera(null)} />
+        <PTZPanel cameraId={ptzCamera} cameraName={cameras.find(c => c.id === ptzCamera)?.name ?? ''} onClose={() => setPtzCamera(null)} />
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import type { Preset } from '../lib/api';
 
 interface Props {
-  cameraId: number;
+  cameraId: string;
   cameraName: string;
   onClose: () => void;
 }
@@ -66,7 +66,6 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
 
       {connected && (
         <div className="p-4 flex flex-col gap-4">
-          {/* D-Pad */}
           <div className="flex flex-col items-center gap-1">
             <button onMouseDown={() => move(0, -1)} onMouseUp={stop} onMouseLeave={stop} className="w-10 h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
               <ChevronUp size={18} />
@@ -87,7 +86,6 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
             </button>
           </div>
 
-          {/* LED + Presets */}
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => led === 'on' ? ledOff() : ledOn()} className={`flex items-center justify-center gap-2 py-2 rounded-lg border text-xs transition-all ${led === 'on' ? 'bg-warning/20 border-warning text-warning' : 'bg-elevated border-glass-border hover:border-accent'}`}>
               {led === 'on' ? <Lightbulb size={14} /> : <LightbulbOff size={14} />}
@@ -98,7 +96,6 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
             </button>
           </div>
 
-          {/* Preset list */}
           {presets.length > 0 && (
             <div>
               <p className="text-[10px] text-text-muted mb-1">Presets</p>
@@ -114,7 +111,6 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
 
           <button onClick={loadPresets} className="w-full py-1 text-[10px] text-accent hover:underline">Cargar presets</button>
 
-          {/* Cruise */}
           <div>
             <p className="text-[10px] text-text-muted mb-1">Cruce</p>
             <div className="grid grid-cols-2 gap-2">
@@ -127,7 +123,6 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
             </div>
           </div>
 
-          {/* Patrol */}
           <div>
             <p className="text-[10px] text-text-muted mb-1">Patrulla</p>
             <div className="flex gap-2">

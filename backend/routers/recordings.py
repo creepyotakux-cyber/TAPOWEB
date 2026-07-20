@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from backend.config import load_settings, build_rtsp_url
+from backend.config import load_settings, build_rtsp_url, get_camera_by_id
 from backend.services.recording_service import recording_service
 
 router = APIRouter(prefix="/api/recordings", tags=["recordings"])
@@ -14,12 +14,12 @@ def list_recordings():
 
 
 @router.get("/calendar/{camera_id}")
-def get_calendar(camera_id: int):
+def get_calendar(camera_id: str):
     return recording_service.get_calendar(camera_id)
 
 
 @router.get("/hours/{camera_id}/{date}")
-def get_hours(camera_id: int, date: str):
+def get_hours(camera_id: str, date: str):
     if len(date) != 10 or date[4] != "-" or date[7] != "-":
         raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
     return recording_service.get_hours(camera_id, date)
@@ -33,23 +33,21 @@ def cleanup_recordings():
 
 
 @router.post("/{camera_id}/start")
-def start_recording(camera_id: int):
-    settings = load_settings()
-    cameras = settings.get("cameras", [])
-    if camera_id < 0 or camera_id >= len(cameras):
+def start_recording(camera_id: str):
+    cam = get_camera_by_id(camera_id)
+    if cam is None:
         raise HTTPException(status_code=404, detail="Camera not found")
-    cam = cameras[camera_id]
     url = build_rtsp_url(cam)
     return recording_service.start(camera_id, url, cam.get("name", f"cam{camera_id}"))
 
 
 @router.post("/{camera_id}/stop")
-def stop_recording(camera_id: int):
+def stop_recording(camera_id: str):
     return recording_service.stop(camera_id)
 
 
 @router.get("/{camera_id}/status")
-def recording_status(camera_id: int):
+def recording_status(camera_id: str):
     return {"recording": recording_service.is_recording(camera_id)}
 
 

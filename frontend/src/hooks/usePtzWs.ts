@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 
-export function usePtzWs(cameraId: number | null) {
+export function usePtzWs(cameraId: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [led, setLed] = useState<'on' | 'off'>('off');

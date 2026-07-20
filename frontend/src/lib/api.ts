@@ -13,6 +13,7 @@ async function request<T>(url: string, opts?: RequestInit): Promise<T> {
 }
 
 export interface Camera {
+  id: string;
   name: string;
   ip: string;
   user: string;
@@ -24,7 +25,7 @@ export interface Camera {
 }
 
 export interface WatchdogStatus {
-  camera_id: number;
+  camera_id: string;
   kind: string;
   active: boolean;
   pid: number | null;
@@ -44,7 +45,7 @@ export interface Recording {
   filename: string;
   size: number;
   modified: number;
-  camera_id?: number | null;
+  camera_id?: string | null;
   date?: string | null;
   hour?: number | null;
   type?: 'dvr' | 'manual';
@@ -73,34 +74,34 @@ export interface HourSegment {
 export const api = {
   getCameras: () => request<Camera[]>('/api/cameras'),
   addCamera: (cam: Partial<Camera>) => request<{ cameras: Camera[] }>('/api/cameras', { method: 'POST', body: JSON.stringify(cam) }),
-  updateCamera: (i: number, cam: Partial<Camera>) => request<{ cameras: Camera[] }>(`/api/cameras/${i}`, { method: 'PUT', body: JSON.stringify(cam) }),
-  deleteCamera: (i: number) => request<{ cameras: Camera[] }>(`/api/cameras/${i}`, { method: 'DELETE' }),
+  updateCamera: (id: string, cam: Partial<Camera>) => request<{ cameras: Camera[] }>(`/api/cameras/${id}`, { method: 'PUT', body: JSON.stringify(cam) }),
+  deleteCamera: (id: string) => request<{ cameras: Camera[] }>(`/api/cameras/${id}`, { method: 'DELETE' }),
   reorderCameras: (from: number, to: number) => request<{ cameras: Camera[] }>('/api/cameras/reorder', { method: 'PUT', body: JSON.stringify({ from_index: from, to_index: to }) }),
-  getSettings: () => request<{ grid_size: number; theme: string; view_mode: string; main_camera: number }>('/api/cameras/settings'),
-  updateSettings: (s: { grid_size?: number; theme?: string; view_mode?: string; main_camera?: number }) => request<{ grid_size: number; theme: string; view_mode: string; main_camera: number }>('/api/cameras/settings', { method: 'PUT', body: JSON.stringify(s) }),
+  getSettings: () => request<{ grid_size: number; theme: string; view_mode: string; main_camera: string }>('/api/cameras/settings'),
+  updateSettings: (s: { grid_size?: number; theme?: string; view_mode?: string; main_camera?: string }) => request<{ grid_size: number; theme: string; view_mode: string; main_camera: string }>('/api/cameras/settings', { method: 'PUT', body: JSON.stringify(s) }),
 
-  startStream: (id: number) => request(`/api/stream/${id}/start`, { method: 'POST' }),
-  stopStream: (id: number) => request(`/api/stream/${id}/stop`, { method: 'POST' }),
-  streamStatus: () => request<{ camera_id: number; active: boolean; pid: number | null }[]>('/api/stream/status'),
+  startStream: (id: string) => request(`/api/stream/${id}/start`, { method: 'POST' }),
+  stopStream: (id: string) => request(`/api/stream/${id}/stop`, { method: 'POST' }),
+  streamStatus: () => request<{ camera_id: string; active: boolean; pid: number | null }[]>('/api/stream/status'),
 
-  connectPtz: (id: number) => request(`/api/ptz/${id}/connect`, { method: 'POST' }),
-  ptzCommand: (id: number, cmd: Record<string, unknown>) => request(`/api/ptz/${id}/command`, { method: 'POST', body: JSON.stringify(cmd) }),
-  getPresets: (id: number) => request<Preset[]>(`/api/ptz/${id}/presets`),
-  ptzStatus: (id: number) => request<{ connected: boolean; led: string }>(`/api/ptz/${id}/status`),
+  connectPtz: (id: string) => request(`/api/ptz/${id}/connect`, { method: 'POST' }),
+  ptzCommand: (id: string, cmd: Record<string, unknown>) => request(`/api/ptz/${id}/command`, { method: 'POST', body: JSON.stringify(cmd) }),
+  getPresets: (id: string) => request<Preset[]>(`/api/ptz/${id}/presets`),
+  ptzStatus: (id: string) => request<{ connected: boolean; led: string }>(`/api/ptz/${id}/status`),
 
   getRecordings: () => request<Recording[]>('/api/recordings'),
-  startRecording: (id: number) => request(`/api/recordings/${id}/start`, { method: 'POST' }),
-  stopRecording: (id: number) => request(`/api/recordings/${id}/stop`, { method: 'POST' }),
-  recordingStatus: (id: number) => request<{ recording: boolean }>(`/api/recordings/${id}/status`),
+  startRecording: (id: string) => request(`/api/recordings/${id}/start`, { method: 'POST' }),
+  stopRecording: (id: string) => request(`/api/recordings/${id}/stop`, { method: 'POST' }),
+  recordingStatus: (id: string) => request<{ recording: boolean }>(`/api/recordings/${id}/status`),
 
-  getDvrCalendar: (cameraId: number) => request<CalendarDay[]>(`/api/recordings/calendar/${cameraId}`),
-  getDvrHours: (cameraId: number, date: string) => request<HourSegment[]>(`/api/recordings/hours/${cameraId}/${date}`),
+  getDvrCalendar: (cameraId: string) => request<CalendarDay[]>(`/api/recordings/calendar/${cameraId}`),
+  getDvrHours: (cameraId: string, date: string) => request<HourSegment[]>(`/api/recordings/hours/${cameraId}/${date}`),
   cleanupDvr: () => request<{ success: boolean; deleted: number; freed_bytes: number }>(`/api/recordings/cleanup`, { method: 'POST' }),
 
   recordingStreamUrl: (filename: string) => `/recordings/files/${filename}`,
 
   getSnapshots: () => request<Snapshot[]>('/api/snapshots'),
-  takeSnapshot: (id: number) => request(`/api/snapshots/${id}`, { method: 'POST' }),
+  takeSnapshot: (id: string) => request(`/api/snapshots/${id}`, { method: 'POST' }),
 
-  health: () => request<{ status: string; streams: { camera_id: number; active: boolean; pid: number | null }[]; watchdog: WatchdogStatus[] }>('/api/health'),
+  health: () => request<{ status: string; streams: { camera_id: string; active: boolean; pid: number | null }[]; watchdog: WatchdogStatus[] }>('/api/health'),
 };

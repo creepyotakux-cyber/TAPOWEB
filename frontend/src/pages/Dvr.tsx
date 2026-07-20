@@ -6,7 +6,6 @@ import {
 import { api } from '../lib/api';
 import type { Camera, CalendarDay, HourSegment } from '../lib/api';
 
-// ---------- helpers ----------
 const WEEKDAYS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
 const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEKDAYS_FULL = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -29,7 +28,6 @@ function formatDateEs(dateStr: string) {
   return `${WEEKDAYS_FULL[date.getDay()]}, ${d} de ${MONTHS_FULL[date.getMonth()]} de ${y}`;
 }
 
-// ---------- CalendarView (inline) ----------
 function CalendarView({ days, selectedDate, onSelect }: {
   days: CalendarDay[];
   selectedDate: string | null;
@@ -130,7 +128,6 @@ function CalendarView({ days, selectedDate, onSelect }: {
   );
 }
 
-// ---------- HourGrid (inline) ----------
 function HourGrid({ hours, selectedHour, onSelect }: {
   hours: HourSegment[];
   selectedHour: number | null;
@@ -180,7 +177,6 @@ function HourGrid({ hours, selectedHour, onSelect }: {
   );
 }
 
-// ---------- VideoPlayer (inline) ----------
 function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPrev }: {
   filename: string;
   title: string;
@@ -261,10 +257,9 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
   );
 }
 
-// ---------- Dvr (page) ----------
 export function Dvr() {
   const [cameras, setCameras] = useState<Camera[]>([]);
-  const [selectedCamera, setSelectedCamera] = useState<number>(0);
+  const [selectedCamera, setSelectedCamera] = useState<string>('');
   const [calendar, setCalendar] = useState<CalendarDay[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [hours, setHours] = useState<HourSegment[]>([]);
@@ -279,12 +274,14 @@ export function Dvr() {
     try {
       const cams = await api.getCameras();
       setCameras(cams);
-      if (cams.length > 0 && selectedCamera >= cams.length) setSelectedCamera(0);
+      if (cams.length > 0 && (!selectedCamera || !cams.find(c => c.id === selectedCamera))) {
+        setSelectedCamera(cams[0].id);
+      }
     } catch {}
   }, [cameras.length, selectedCamera]);
 
   const loadCalendar = useCallback(async () => {
-    if (cameras.length === 0) return;
+    if (!selectedCamera) return;
     setLoadingCalendar(true);
     try {
       const c = await api.getDvrCalendar(selectedCamera);
@@ -293,7 +290,7 @@ export function Dvr() {
       setCalendar([]);
     }
     setLoadingCalendar(false);
-  }, [cameras, selectedCamera]);
+  }, [selectedCamera]);
 
   const loadHours = useCallback(async (date: string) => {
     try {
@@ -318,13 +315,13 @@ export function Dvr() {
   }, [loadCameras]);
 
   useEffect(() => {
-    if (cameras.length === 0) return;
+    if (!selectedCamera) return;
     loadCalendar();
     loadRecordingStatus();
     setSelectedDate(null);
     setHours([]);
     setSelectedHour(null);
-  }, [selectedCamera, cameras.length, loadCalendar, loadRecordingStatus]);
+  }, [selectedCamera, loadCalendar, loadRecordingStatus]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -387,7 +384,8 @@ export function Dvr() {
     return prev?.hour ?? null;
   }, [hours, selectedHour]);
 
-  const cameraName = cameras[selectedCamera]?.name ?? `Cam ${selectedCamera}`;
+  const selectedCam = cameras.find(c => c.id === selectedCamera);
+  const cameraName = selectedCam?.name ?? 'Cam';
   const segUrl = selectedSeg ? api.recordingStreamUrl(selectedSeg.filename) : null;
   const segDownloadUrl = selectedSeg ? `/api/recordings/${selectedSeg.filename}` : null;
   const segTitle = selectedSeg && selectedDate
@@ -410,11 +408,11 @@ export function Dvr() {
         <div className="flex items-center gap-2">
           <select
             value={selectedCamera}
-            onChange={(e) => setSelectedCamera(Number(e.target.value))}
+            onChange={(e) => setSelectedCamera(e.target.value)}
             className="bg-elevated border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
           >
-            {cameras.map((c, i) => (
-              <option key={i} value={i}>{c.name || `Cam ${i}`}</option>
+            {cameras.map((c) => (
+              <option key={c.id} value={c.id}>{c.name || `Cam ${c.id}`}</option>
             ))}
           </select>
           <button
@@ -485,7 +483,7 @@ export function Dvr() {
 
       {cameras.length === 0 && (
         <div className="text-center py-16 text-text-muted text-sm">
-          No hay cámaras configuradas. Ve a Configuración para agregar una.
+          No hay camaras configuradas. Ve a Configuracion para agregar una.
         </div>
       )}
     </div>

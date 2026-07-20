@@ -6,7 +6,7 @@ from backend.config import HLS_DIR
 
 class StreamManager:
     def __init__(self):
-        self._processes: dict[int, subprocess.Popen] = {}
+        self._processes: dict[str, subprocess.Popen] = {}
 
     def _resolve_ffmpeg(self) -> str:
         exe = shutil.which("ffmpeg")
@@ -18,7 +18,7 @@ class StreamManager:
         except Exception:
             return "ffmpeg"
 
-    def start(self, camera_id: int, rtsp_url: str) -> dict:
+    def start(self, camera_id: str, rtsp_url: str) -> dict:
         if camera_id in self._processes:
             proc = self._processes[camera_id]
             if proc.poll() is None:
@@ -59,7 +59,7 @@ class StreamManager:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def stop(self, camera_id: int) -> bool:
+    def stop(self, camera_id: str) -> bool:
         proc = self._processes.pop(camera_id, None)
         if proc is None:
             return False
@@ -89,14 +89,14 @@ class StreamManager:
             result.append({"camera_id": cid, "active": running, "pid": proc.pid if running else None})
         return result
 
-    def is_active(self, camera_id: int) -> bool:
+    def is_active(self, camera_id: str) -> bool:
         proc = self._processes.get(camera_id)
         return proc is not None and proc.poll() is None
 
-    def playlist_path(self, camera_id: int) -> Path:
+    def playlist_path(self, camera_id: str) -> Path:
         return HLS_DIR / f"cam_{camera_id}.m3u8"
 
-    def _cleanup_segments(self, camera_id: int):
+    def _cleanup_segments(self, camera_id: str):
         for f in HLS_DIR.glob(f"cam_{camera_id}_*.ts"):
             try:
                 f.unlink()

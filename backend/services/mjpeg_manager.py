@@ -4,7 +4,7 @@ import shutil
 from dataclasses import dataclass, field
 from fastapi import WebSocket
 
-from backend.config import load_settings, build_rtsp_url
+from backend.config import load_settings, build_rtsp_url, get_camera_by_id
 
 logger = logging.getLogger("mjpeg_manager")
 
@@ -58,10 +58,10 @@ class _CameraStream:
 
 class MjpegStreamManager:
     def __init__(self):
-        self._streams: dict[int, _CameraStream] = {}
+        self._streams: dict[str, _CameraStream] = {}
         self._global_lock = asyncio.Lock()
 
-    async def subscribe(self, camera_id: int, ws: WebSocket):
+    async def subscribe(self, camera_id: str, ws: WebSocket):
         async with self._global_lock:
             stream = self._streams.get(camera_id)
             if stream is None:
@@ -96,13 +96,13 @@ class MjpegStreamManager:
         finally:
             await self._unsubscribe(camera_id, ws, stream)
 
-    async def _unsubscribe(self, camera_id: int, ws: WebSocket, stream: _CameraStream):
+    async def _unsubscribe(self, camera_id: str, ws: WebSocket, stream: _CameraStream):
         async with self._global_lock:
             stream.subscribers.pop(ws, None)
             if not stream.subscribers:
                 stream.grace_task = asyncio.create_task(self._grace_period(camera_id, stream))
 
-    async def _grace_period(self, camera_id: int, stream: _CameraStream):
+    async def _grace_period(self, camera_id: str, stream: _CameraStream):
         try:
             await asyncio.sleep(GRACE_PERIOD)
             async with self._global_lock:
@@ -111,13 +111,12 @@ class MjpegStreamManager:
         except asyncio.CancelledError:
             pass
 
-    async def _start_stream(self, camera_id: int, stream: _CameraStream):
-        settings = load_settings()
-        cameras = settings.get("cameras", [])
-        if camera_id < 0 or camera_id >= len(cameras):
+    async def _start_stream(self, camera_id: str, stream: _CameraStream):
+        cam = get_camera_by_id(camera_id)
+        if cam is None:
             return
 
-        rtsp_url = build_rtsp_url(cameras[camera_id])
+        rtsp_url = build_rtsp_url(cam)
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -129,9 +128,9 @@ class MjpegStreamManager:
             stream.process = proc
             stream.reader_task = asyncio.create_task(self._reader(camera_id, stream, proc))
         except Exception as e:
-            logger.error("Failed to start FFmpeg for camera %d: %s", camera_id, e)
+            logger.error("Failed to start FFmpeg for camera %s: %s", camera_id, e)
 
-    async def _reader(self, camera_id: int, stream: _CameraStream, proc: asyncio.subprocess.Process):
+    async def _reader(self, camera_id: str, stream: _CameraStream, proc: asyncio.subprocess.Process):
         buf = b""
         try:
             while True:
@@ -177,7 +176,7 @@ class MjpegStreamManager:
                 except asyncio.QueueFull:
                     pass
 
-    async def _stop_stream(self, camera_id: int, stream: _CameraStream):
+    async def _stop_stream(self, camera_id: str, stream: _CameraStream):
         self._streams.pop(camera_id, None)
         if stream.reader_task:
             stream.reader_task.cancel()

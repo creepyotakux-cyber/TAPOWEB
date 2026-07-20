@@ -21,7 +21,6 @@ export function Sidebar({ page, onNavigate, theme, onToggleTheme }: Props) {
       <div className="p-6 flex flex-col items-center text-center">
         <img src={logo} alt="AGARCORP" className="w-24 h-24 object-contain mb-3" />
         <h1 className="text-base font-bold text-text-primary leading-tight">AGARCORP DE VENEZUELA C.A</h1>
-        <p className="text-xs text-text-muted mt-1">Sistema de Vigilancia AGARVEN</p>
       </div>
 
       <nav className="flex-1 flex flex-col justify-start items-center px-3 gap-5 pt-8">

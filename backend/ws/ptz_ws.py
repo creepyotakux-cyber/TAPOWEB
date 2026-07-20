@@ -1,37 +1,34 @@
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
-from backend.config import load_settings
+from backend.config import get_camera_by_id
 from backend.services.onvif_service import OnvifService
 
-_connections: dict[int, OnvifService] = {}
+_connections: dict[str, OnvifService] = {}
 
 
 def _log(msg):
     print(f"[PTZ-WS] {msg}", flush=True)
 
 
-def _get_onvif(camera_id: int) -> OnvifService:
+def _get_onvif(camera_id: str) -> OnvifService:
     if camera_id not in _connections:
         _connections[camera_id] = OnvifService()
     return _connections[camera_id]
 
 
-async def ptz_websocket(websocket: WebSocket, camera_id: int):
+async def ptz_websocket(websocket: WebSocket, camera_id: str):
     _log(f"Handler called camera_id={camera_id}")
     try:
-        camera_id = int(camera_id)
         await websocket.accept()
         _log("WebSocket accepted")
 
-        settings = load_settings()
-        cameras = settings.get("cameras", [])
-        if camera_id < 0 or camera_id >= len(cameras):
+        cam = get_camera_by_id(camera_id)
+        if cam is None:
             _log(f"Camera {camera_id} not found")
             await websocket.send_json({"error": "Camera not found"})
             await websocket.close()
             return
 
-        cam = cameras[camera_id]
         onvif = _get_onvif(camera_id)
 
         if not onvif.is_connected:

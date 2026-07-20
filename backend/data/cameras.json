@@ -71,9 +71,31 @@
       "cloud_password": "",
       "enabled": true,
       "model": "C200"
+    },
+    {
+      "id": "9a5d03e7",
+      "name": "MPFM 10801 ",
+      "ip": "10.10.30.51",
+      "user": "mpfm10801",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "c500"
+    },
+    {
+      "id": "eb4b7821",
+      "name": "BASE MPFM",
+      "ip": "192.168.239.51",
+      "user": "mpfm40401",
+      "password": "agar1212",
+      "cloud_password": "",
+      "enabled": true,
+      "model": "C500"
     }
   ],
-  "grid_size": 3,
+  "grid_size": 4,
   "theme": "dark",
+  "view_mode": "lmain",
+  "main_camera": "c1d2e3f4",
   "recording_retention_days": 7
 }

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from uuid import uuid4
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
@@ -16,11 +17,12 @@ DEFAULT_SETTINGS: dict = {
     "grid_size": 4,
     "theme": "dark",
     "view_mode": "grid",
-    "main_camera": 0,
+    "main_camera": "",
     "recording_retention_days": 7,
 }
 
 DEFAULT_CAMERA: dict = {
+    "id": "",
     "name": "",
     "ip": "",
     "user": "",
@@ -29,6 +31,10 @@ DEFAULT_CAMERA: dict = {
     "enabled": True,
     "model": "",
 }
+
+
+def generate_id() -> str:
+    return uuid4().hex[:8]
 
 
 def build_rtsp_url(cam: dict) -> str:
@@ -52,8 +58,9 @@ def save_settings(settings: dict) -> None:
         json.dump(settings, f, indent=2, ensure_ascii=False)
 
 
-def get_camera(index: int) -> dict | None:
+def get_camera_by_id(camera_id: str) -> dict | None:
     cams = load_settings().get("cameras", [])
-    if 0 <= index < len(cams):
-        return cams[index]
+    for cam in cams:
+        if cam.get("id") == camera_id:
+            return cam
     return None

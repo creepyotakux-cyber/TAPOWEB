@@ -37,6 +37,6 @@ class PTZCommand(BaseModel):
 
 
 class StreamStatus(BaseModel):
-    camera_id: int
+    camera_id: str
     active: bool
     pid: int | None = None

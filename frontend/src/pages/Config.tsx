@@ -5,7 +5,7 @@ import type { Camera } from '../lib/api';
 
 export function Config() {
   const [cameras, setCameras] = useState<Camera[]>([]);
-  const [editing, setEditing] = useState<number | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Partial<Camera>>({ name: '', ip: '', user: '', password: '', model: '' });
 
@@ -28,16 +28,16 @@ export function Config() {
     load();
   };
 
-  const handleDelete = async (i: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Eliminar esta camara?')) {
-      await api.deleteCamera(i);
+      await api.deleteCamera(id);
       load();
     }
   };
 
-  const handleEdit = (i: number) => {
-    setForm({ ...cameras[i] });
-    setEditing(i);
+  const handleEdit = (cam: Camera) => {
+    setForm({ ...cam });
+    setEditing(cam.id);
     setShowForm(true);
   };
 
@@ -56,8 +56,8 @@ export function Config() {
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-        {cameras.map((cam, i) => (
-          <div key={i} className="bg-surface border border-glass-border rounded-xl p-4 flex items-center gap-4">
+        {cameras.map((cam) => (
+          <div key={cam.id} className="bg-surface border border-glass-border rounded-xl p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-accent-bg flex items-center justify-center">
               <CameraIcon size={20} className="text-accent" />
             </div>
@@ -66,10 +66,10 @@ export function Config() {
               <p className="text-xs text-text-muted">{cam.model || 'Sin modelo'} &middot; {cam.ip}</p>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={() => handleEdit(i)} className="p-2 hover:bg-elevated rounded-lg transition-all" title="Editar">
+              <button onClick={() => handleEdit(cam)} className="p-2 hover:bg-elevated rounded-lg transition-all" title="Editar">
                 <Edit3 size={14} className="text-text-muted" />
               </button>
-              <button onClick={() => handleDelete(i)} className="p-2 hover:bg-danger-dim rounded-lg transition-all" title="Eliminar">
+              <button onClick={() => handleDelete(cam.id)} className="p-2 hover:bg-danger-dim rounded-lg transition-all" title="Eliminar">
                 <Trash2 size={14} className="text-danger" />
               </button>
             </div>
