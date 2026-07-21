@@ -145,6 +145,7 @@ function HourGrid({ hours, selectedHour, onSelect }: {
           const seg = byHour.get(h);
           const isSelected = h === selectedHour;
           const playable = seg?.playable !== false;
+          const inProgress = seg?.in_progress === true;
           return (
             <button
               key={h}
@@ -155,12 +156,12 @@ function HourGrid({ hours, selectedHour, onSelect }: {
                 ${!isSelected && seg && playable ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent border border-glass-border' : ''}
                 ${!seg || !playable ? 'bg-void/30 text-text-muted border border-glass-border/30 cursor-not-allowed' : ''}
               `}
-              title={seg ? (playable ? `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})` : `${pad(h)}:00 — grabando (${formatSize(seg.size)})`) : ''}
+              title={seg ? (inProgress ? `${pad(h)}:00 - ${pad(h + 1)}:00 (grabando - ${formatSize(seg.size)})` : `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})`) : ''}
             >
               <div className="flex items-center gap-1 font-semibold">
-                {seg && !playable ? (
+                {seg && inProgress ? (
                   <span className="w-2.5 h-2.5 rounded-full bg-recording animate-pulse" />
-                ) : seg ? (
+                ) : seg && playable ? (
                   isSelected ? <Circle size={10} className="fill-white text-white" /> : <Play size={10} className="text-live" />
                 ) : null}
                 <span>{pad(h)}:00</span>
@@ -443,7 +444,7 @@ export function Dvr() {
   const segUrl = selectedSeg ? api.recordingStreamUrl(selectedSeg.filename) : null;
   const segDownloadUrl = selectedSeg ? `/api/recordings/${selectedSeg.filename}` : null;
   const segTitle = selectedSeg && selectedDate
-    ? `${cameraName} - ${selectedDate} ${pad(selectedSeg.hour)}:00 - ${pad((selectedSeg.hour + 1) % 24)}:00`
+    ? `${cameraName} - ${selectedDate} ${pad(selectedSeg.hour)}:00 - ${pad((selectedSeg.hour + 1) % 24)}:00${selectedSeg.in_progress ? ' (grabando)' : ''}`
     : '';
 
   return (

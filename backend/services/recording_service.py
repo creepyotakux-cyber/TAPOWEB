@@ -331,15 +331,16 @@ class RecordingService:
             return False, "stat failed"
         if size < self.MIN_PLAYABLE_SIZE:
             return False, "file too small (still recording)"
-        # Check if this is the in-progress segment
+        is_in_progress = False
         skip_name = self._in_progress_filename(camera_id)
-        if skip_name:
-            segment_name = p.name
-            if segment_name == skip_name:
-                return False, "segment in progress"
-        # Validate moov atom with ffprobe
+        if skip_name and p.name == skip_name:
+            is_in_progress = True
         if not self._has_valid_moov(p):
+            if is_in_progress:
+                return False, "segment in progress (moov not ready)"
             return False, "invalid mp4 (moov atom missing)"
+        if is_in_progress:
+            return True, "in progress"
         return True, "ok"
 
     def get_hours(self, camera_id: str, date_str: str) -> list[dict]:
@@ -356,17 +357,14 @@ class RecordingService:
             is_in_progress = bool(skip_name and f.name == skip_name)
             hour = int(m.group(4))
             stat = f.stat()
-            playable = (
-                not is_in_progress
-                and stat.st_size >= self.MIN_PLAYABLE_SIZE
-                and self._has_valid_moov(f)
-            )
+            playable = stat.st_size >= self.MIN_PLAYABLE_SIZE and self._has_valid_moov(f)
             hours.append({
                 "hour": hour,
                 "filename": f"cam_{camera_id}/{f.name}",
                 "size": stat.st_size,
                 "modified": stat.st_mtime,
                 "playable": playable,
+                "in_progress": is_in_progress,
             })
         hours.sort(key=lambda x: x["hour"])
         return hours

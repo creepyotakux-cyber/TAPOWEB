@@ -80,6 +80,7 @@ export interface HourSegment {
   size: number;
   modified: number;
   playable?: boolean;
+  in_progress?: boolean;
 }
 
 export const api = {

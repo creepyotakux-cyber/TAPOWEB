@@ -53,7 +53,6 @@ def recording_status(camera_id: str):
 
 @router.get("/check/{filename:path}")
 def check_recording(filename: str):
-    # Extract camera_id from "cam_{id}/YYYYMMDD_HH.mp4"
     parts = filename.split("/", 1)
     if len(parts) == 2 and parts[0].startswith("cam_"):
         camera_id = parts[0][4:]
