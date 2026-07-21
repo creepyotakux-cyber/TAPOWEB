@@ -241,15 +241,25 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
         if (!res.playable) {
           if (res.reason.includes('moov')) {
             setPreparing(true);
-            const prep = await api.prepareRecording(filename);
-            if (cancelled) return;
-            if (!prep.ready) {
+            try {
+              const prep = await api.prepareRecording(filename);
+              if (cancelled) return;
+              if (!prep.ready) {
+                setError(true);
+                setLoading(false);
+                setPreparing(false);
+                setErrorMsg('Segmento en grabacion — el video no esta disponible hasta que termine la hora.\n\nVe al Dashboard para ver en vivo.');
+                return;
+              }
+              streamUrl = api.recordingStreamUrl(prep.prepared_filename);
+            } catch {
+              if (cancelled) return;
               setError(true);
               setLoading(false);
-              setErrorMsg('No se pudo preparar el segmento');
+              setPreparing(false);
+              setErrorMsg('Segmento en grabacion — el video no esta disponible hasta que termine la hora.\n\nVe al Dashboard para ver en vivo.');
               return;
             }
-            streamUrl = api.recordingStreamUrl(prep.prepared_filename);
           } else {
             setError(true);
             setLoading(false);

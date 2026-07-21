@@ -5,6 +5,7 @@ import re
 import threading
 import datetime
 import logging
+import os
 from pathlib import Path
 from backend.config import RECORDINGS_DIR
 
@@ -450,44 +451,7 @@ class RecordingService:
             return None, "file too small"
         if self._has_valid_moov(p):
             return p, "already_ready"
-
-        ffmpeg = self._resolve_ffmpeg()
-        prep_dir = self._prepare_dir()
-        safe_name = filename.replace("/", "_").replace("\\", "_")
-        out = prep_dir / safe_name
-        if out.exists():
-            try:
-                if self._has_valid_moov(out):
-                    self._cleanup_prepare_dir()
-                    return out, "prepared"
-            except OSError:
-                pass
-
-        self._cleanup_prepare_dir()
-        cmd = [
-            ffmpeg, "-y",
-            "-i", str(p),
-            "-c", "copy",
-            "-movflags", "+faststart",
-            str(out),
-        ]
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                timeout=30,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
-            )
-            if result.returncode != 0:
-                stderr = result.stderr.decode("utf-8", "replace").strip()
-                return None, f"remux failed: {stderr[:120]}"
-            if not out.exists() or out.stat().st_size < self.MIN_PLAYABLE_SIZE:
-                return None, "remux produced empty file"
-            return out, "prepared"
-        except subprocess.TimeoutExpired:
-            return None, "remux timed out"
-        except Exception as e:
-            return None, f"remux error: {e}"
+        return None, "moov not ready"
 
     def get_recording_path(self, filename: str) -> Path | None:
         p = (RECORDINGS_DIR / filename).resolve()
