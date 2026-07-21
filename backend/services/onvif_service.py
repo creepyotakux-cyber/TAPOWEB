@@ -39,8 +39,8 @@ class OnvifService:
                 try:
                     from onvif import ONVIFCamera
                     from zeep import Transport
-                    self._transport = Transport(timeout=3, operation_timeout=3)
-                    self._fast_transport = Transport(timeout=2, operation_timeout=2)
+                    self._transport = Transport(timeout=10, operation_timeout=10)
+                    self._fast_transport = Transport(timeout=5, operation_timeout=5)
                     self._cam = ONVIFCamera(ip, port, user, password, transport=self._transport)
                     self._cam.host = ip
                     for ns in list(self._cam.xaddrs.keys()):
