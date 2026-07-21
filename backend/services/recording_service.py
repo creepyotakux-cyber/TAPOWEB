@@ -415,15 +415,79 @@ class RecordingService:
             except Exception:
                 pass
 
-    def get_recording_path(self, filename: str) -> Path | None:
+    PREPARE_DIR_NAME = "_prepare"
+
+    def _prepare_dir(self) -> Path:
+        d = RECORDINGS_DIR / self.PREPARE_DIR_NAME
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _cleanup_prepare_dir(self):
+        d = RECORDINGS_DIR / self.PREPARE_DIR_NAME
+        if not d.exists():
+            return
+        cutoff = time.time() - 600
+        for f in d.glob("*"):
+            try:
+                if f.stat().st_mtime < cutoff:
+                    f.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def prepare_segment(self, filename: str) -> tuple[Path | None, str]:
         p = (RECORDINGS_DIR / filename).resolve()
         try:
             p.relative_to(RECORDINGS_DIR.resolve())
         except ValueError:
-            return None
-        if p.exists() and p.is_file():
-            return p
-        return None
+            return None, "invalid path"
+        if not p.exists() or not p.is_file():
+            return None, "file not found"
+        try:
+            size = p.stat().st_size
+        except OSError:
+            return None, "stat failed"
+        if size < self.MIN_PLAYABLE_SIZE:
+            return None, "file too small"
+        if self._has_valid_moov(p):
+            return p, "already_ready"
+
+        ffmpeg = self._resolve_ffmpeg()
+        prep_dir = self._prepare_dir()
+        safe_name = filename.replace("/", "_").replace("\\", "_")
+        out = prep_dir / safe_name
+        if out.exists():
+            try:
+                if self._has_valid_moov(out):
+                    self._cleanup_prepare_dir()
+                    return out, "prepared"
+            except OSError:
+                pass
+
+        self._cleanup_prepare_dir()
+        cmd = [
+            ffmpeg, "-y",
+            "-i", str(p),
+            "-c", "copy",
+            "-movflags", "+faststart",
+            str(out),
+        ]
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=30,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.decode("utf-8", "replace").strip()
+                return None, f"remux failed: {stderr[:120]}"
+            if not out.exists() or out.stat().st_size < self.MIN_PLAYABLE_SIZE:
+                return None, "remux produced empty file"
+            return out, "prepared"
+        except subprocess.TimeoutExpired:
+            return None, "remux timed out"
+        except Exception as e:
+            return None, f"remux error: {e}"
 
 
 recording_service = RecordingService()

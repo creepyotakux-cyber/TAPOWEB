@@ -194,6 +194,7 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [preparing, setPreparing] = useState(false);
   const retriesRef = useRef(0);
   const MAX_RETRIES = 2;
 
@@ -201,11 +202,13 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
     setLoading(true);
     setError(false);
     setErrorMsg('');
+    setPreparing(false);
     retriesRef.current = 0;
     const v = videoRef.current;
     if (!v) return;
 
     let cancelled = false;
+    let streamUrl = url;
 
     const onLoaded = () => { if (!cancelled) setLoading(false); };
     const onErr = () => {
@@ -216,7 +219,7 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
           if (!cancelled && v) {
             setLoading(true);
             setError(false);
-            v.src = url;
+            v.src = streamUrl;
             v.load();
           }
         }, 2000);
@@ -233,14 +236,21 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
     api.checkRecording(filename).then((res) => {
       if (cancelled) return;
       if (!res.playable) {
+        if (res.reason.includes('moov')) {
+          setPreparing(true);
+          streamUrl = api.prepareRecordingUrl(filename);
+          v.addEventListener('loadeddata', onLoaded);
+          v.addEventListener('canplay', onLoaded);
+          v.addEventListener('error', onErr);
+          v.src = streamUrl;
+          return;
+        }
         setError(true);
         setLoading(false);
         if (res.reason.includes('in progress') || res.reason.includes('recording')) {
           setErrorMsg('Segmento en grabacion, aun no disponible');
         } else if (res.reason.includes('small')) {
           setErrorMsg('Segmento incompleto, grabacion en curso');
-        } else if (res.reason.includes('moov')) {
-          setErrorMsg('Archivo corrupto — segmento no finalizado');
         } else {
           setErrorMsg('Segmento no disponible');
         }
@@ -249,13 +259,13 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
       v.addEventListener('loadeddata', onLoaded);
       v.addEventListener('canplay', onLoaded);
       v.addEventListener('error', onErr);
-      v.src = url;
+      v.src = streamUrl;
     }).catch(() => {
       if (cancelled) return;
       v.addEventListener('loadeddata', onLoaded);
       v.addEventListener('canplay', onLoaded);
       v.addEventListener('error', onErr);
-      v.src = url;
+      v.src = streamUrl;
     });
 
     return () => {
@@ -294,8 +304,11 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
 
       <div className="relative bg-void aspect-video">
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
             <Loader2 size={28} className="text-accent animate-spin" />
+            {preparing && (
+              <span className="text-xs text-text-muted">Preparando segmento...</span>
+            )}
           </div>
         )}
         {error && (

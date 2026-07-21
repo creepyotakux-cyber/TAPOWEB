@@ -111,6 +111,7 @@ export const api = {
   cleanupDvr: () => request<{ success: boolean; deleted: number; freed_bytes: number }>(`/api/recordings/cleanup`, { method: 'POST' }),
 
   recordingStreamUrl: (filename: string) => `/api/recordings/stream/${filename}`,
+  prepareRecordingUrl: (filename: string) => `/api/recordings/prepare/${filename}`,
 
   checkRecording: (filename: string) => request<{ playable: boolean; reason: string }>(`/api/recordings/check/${filename}`),
 

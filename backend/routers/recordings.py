@@ -70,6 +70,14 @@ def stream_recording(filename: str):
     return FileResponse(str(path), media_type="video/mp4")
 
 
+@router.get("/prepare/{filename:path}")
+def prepare_recording(filename: str):
+    path, reason = recording_service.prepare_segment(filename)
+    if path is None:
+        raise HTTPException(status_code=400, detail=reason)
+    return FileResponse(str(path), media_type="video/mp4")
+
+
 @router.get("/{filename:path}")
 def download_recording(filename: str):
     path = recording_service.get_recording_path(filename)
