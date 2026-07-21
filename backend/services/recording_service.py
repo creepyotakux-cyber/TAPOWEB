@@ -23,6 +23,30 @@ class RecordingService:
         self._cleanup_stop: threading.Event | None = None
         self._cleanup_thread: threading.Thread | None = None
 
+    def kill_orphans(self) -> int:
+        """Kill all ffmpeg processes that are writing DVR segments.
+        Called on startup to clean up processes from a previous run."""
+        killed = 0
+        try:
+            import psutil
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    cmdline = proc.info.get('cmdline') or []
+                    if len(cmdline) < 3:
+                        continue
+                    # Detect: ffmpeg ... -f segment ... %Y%m%d_%H.mp4
+                    if '-f' in cmdline and 'segment' in cmdline and any(
+                        '%Y%m%d_%H.mp4' in arg for arg in cmdline
+                    ):
+                        proc.kill()
+                        killed += 1
+                        logger.info("Killed orphan ffmpeg PID %s", proc.info['pid'])
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+        except ImportError:
+            pass
+        return killed
+
     def _resolve_ffmpeg(self) -> str:
         exe = shutil.which("ffmpeg")
         if exe:
@@ -32,6 +56,21 @@ class RecordingService:
             return imageio_ffmpeg.get_ffmpeg_exe()
         except Exception:
             return "ffmpeg"
+
+    def _resolve_ffprobe(self) -> str | None:
+        exe = shutil.which("ffprobe")
+        if exe:
+            return exe
+        # Try alongside ffmpeg
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg:
+            candidate = Path(ffmpeg).parent / "ffprobe.exe"
+            if candidate.exists():
+                return str(candidate)
+            candidate = Path(ffmpeg).parent / "ffprobe"
+            if candidate.exists():
+                return str(candidate)
+        return None
 
     def _camera_dir(self, camera_id: str) -> Path:
         return RECORDINGS_DIR / f"cam_{camera_id}"
@@ -255,6 +294,54 @@ class RecordingService:
             e["hours"].sort()
         return result
 
+    MIN_PLAYABLE_SIZE = 10240  # 10 KB — segments smaller than this are incomplete
+
+    def _has_valid_moov(self, filepath: Path) -> bool:
+        """Use ffprobe to verify the MP4 has a valid moov atom."""
+        ffprobe = self._resolve_ffprobe()
+        if not ffprobe:
+            # Can't verify — trust size check only
+            return True
+        try:
+            result = subprocess.run(
+                [ffprobe, "-v", "error", "-show_entries",
+                 "stream=codec_type", "-of", "csv=p=0", str(filepath)],
+                capture_output=True, timeout=5,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            )
+            # If ffprobe finds streams, the file is valid
+            output = result.stdout.decode("utf-8", "replace").strip()
+            return len(output) > 0
+        except Exception:
+            return True  # Can't verify — trust size check
+
+    def is_segment_playable(self, camera_id: str, filename: str) -> tuple[bool, str]:
+        """Check whether a DVR segment file is safe to play.
+        Returns (playable, reason)."""
+        p = (RECORDINGS_DIR / filename).resolve()
+        try:
+            p.relative_to(RECORDINGS_DIR.resolve())
+        except ValueError:
+            return False, "invalid path"
+        if not p.exists() or not p.is_file():
+            return False, "file not found"
+        try:
+            size = p.stat().st_size
+        except OSError:
+            return False, "stat failed"
+        if size < self.MIN_PLAYABLE_SIZE:
+            return False, "file too small (still recording)"
+        # Check if this is the in-progress segment
+        skip_name = self._in_progress_filename(camera_id)
+        if skip_name:
+            segment_name = p.name
+            if segment_name == skip_name:
+                return False, "segment in progress"
+        # Validate moov atom with ffprobe
+        if not self._has_valid_moov(p):
+            return False, "invalid mp4 (moov atom missing)"
+        return True, "ok"
+
     def get_hours(self, camera_id: str, date_str: str) -> list[dict]:
         ymd = date_str.replace("-", "")
         cam_dir = self._camera_dir(camera_id)
@@ -270,11 +357,13 @@ class RecordingService:
                 continue
             hour = int(m.group(4))
             stat = f.stat()
+            playable = stat.st_size >= self.MIN_PLAYABLE_SIZE and self._has_valid_moov(f)
             hours.append({
                 "hour": hour,
                 "filename": f"cam_{camera_id}/{f.name}",
                 "size": stat.st_size,
                 "modified": stat.st_mtime,
+                "playable": playable,
             })
         hours.sort(key=lambda x: x["hour"])
         return hours

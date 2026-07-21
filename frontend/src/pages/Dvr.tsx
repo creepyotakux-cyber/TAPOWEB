@@ -144,27 +144,28 @@ function HourGrid({ hours, selectedHour, onSelect }: {
         {all24.map((h) => {
           const seg = byHour.get(h);
           const isSelected = h === selectedHour;
+          const playable = seg?.playable !== false;
           return (
             <button
               key={h}
               onClick={() => seg && onSelect(h)}
-              disabled={!seg}
+              disabled={!seg || !playable}
               className={`rounded-lg p-2 flex flex-col items-center justify-center text-xs transition-all min-h-[60px]
                 ${isSelected ? 'bg-accent text-white' : ''}
-                ${!isSelected && seg ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent border border-glass-border' : ''}
-                ${!seg ? 'bg-void/30 text-text-muted border border-glass-border/30 cursor-not-allowed' : ''}
+                ${!isSelected && seg && playable ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent border border-glass-border' : ''}
+                ${!seg || !playable ? 'bg-void/30 text-text-muted border border-glass-border/30 cursor-not-allowed' : ''}
               `}
-              title={seg ? `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})` : ''}
+              title={seg ? (playable ? `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})` : `${pad(h)}:00 — grabacion en curso`) : ''}
             >
               <div className="flex items-center gap-1 font-semibold">
-                {seg ? (
+                {seg && playable ? (
                   isSelected ? <Circle size={10} className="fill-white text-white" /> : <Play size={10} className="text-live" />
                 ) : null}
                 <span>{pad(h)}:00</span>
               </div>
               {seg ? (
                 <span className={`text-[9px] mt-0.5 ${isSelected ? 'text-white/80' : 'text-text-muted'}`}>
-                  {formatSize(seg.size)}
+                  {playable ? formatSize(seg.size) : '...'}
                 </span>
               ) : (
                 <span className="text-[9px] mt-0.5 text-text-muted opacity-50">—</span>
@@ -189,23 +190,78 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const retriesRef = useRef(0);
+  const MAX_RETRIES = 2;
 
   useEffect(() => {
     setLoading(true);
     setError(false);
+    setErrorMsg('');
+    retriesRef.current = 0;
     const v = videoRef.current;
     if (!v) return;
-    const onLoaded = () => setLoading(false);
-    const onErr = () => { setError(true); setLoading(false); };
-    v.addEventListener('loadeddata', onLoaded);
-    v.addEventListener('canplay', onLoaded);
-    v.addEventListener('error', onErr);
+
+    let cancelled = false;
+
+    const onLoaded = () => { if (!cancelled) setLoading(false); };
+    const onErr = () => {
+      if (cancelled) return;
+      if (retriesRef.current < MAX_RETRIES) {
+        retriesRef.current++;
+        setTimeout(() => {
+          if (!cancelled && v) {
+            setLoading(true);
+            setError(false);
+            v.src = url;
+            v.load();
+          }
+        }, 2000);
+      } else {
+        setError(true);
+        setLoading(false);
+        const code = v.error?.code;
+        if (code === 3) setErrorMsg('Error de decodificacion — archivo corrupto o incompleto');
+        else if (code === 4) setErrorMsg('Formato no soportado por el navegador');
+        else setErrorMsg('No se pudo cargar el segmento');
+      }
+    };
+
+    api.checkRecording(filename).then((res) => {
+      if (cancelled) return;
+      if (!res.playable) {
+        setError(true);
+        setLoading(false);
+        if (res.reason.includes('in progress') || res.reason.includes('recording')) {
+          setErrorMsg('Segmento en grabacion, aun no disponible');
+        } else if (res.reason.includes('small')) {
+          setErrorMsg('Segmento incompleto, grabacion en curso');
+        } else if (res.reason.includes('moov')) {
+          setErrorMsg('Archivo corrupto — segmento no finalizado');
+        } else {
+          setErrorMsg('Segmento no disponible');
+        }
+        return;
+      }
+      v.addEventListener('loadeddata', onLoaded);
+      v.addEventListener('canplay', onLoaded);
+      v.addEventListener('error', onErr);
+      v.src = url;
+    }).catch(() => {
+      if (cancelled) return;
+      v.addEventListener('loadeddata', onLoaded);
+      v.addEventListener('canplay', onLoaded);
+      v.addEventListener('error', onErr);
+      v.src = url;
+    });
+
     return () => {
+      cancelled = true;
       v.removeEventListener('loadeddata', onLoaded);
       v.removeEventListener('canplay', onLoaded);
       v.removeEventListener('error', onErr);
     };
-  }, [filename]);
+  }, [filename, url]);
 
   return (
     <div className="bg-surface border border-glass-border rounded-lg overflow-hidden">
@@ -240,13 +296,12 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
           </div>
         )}
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center text-text-muted text-sm">
-            No se pudo cargar el segmento
+          <div className="absolute inset-0 flex items-center justify-center text-text-muted text-sm text-center px-4">
+            {errorMsg}
           </div>
         )}
         <video
           ref={videoRef}
-          src={url}
           controls
           autoPlay
           preload="metadata"
@@ -265,8 +320,12 @@ export function Dvr() {
   const [hours, setHours] = useState<HourSegment[]>([]);
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
+  const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [lastCleanup, setLastCleanup] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const selectedCameraRef = useRef(selectedCamera);
+  const selectedDateRef = useRef(selectedDate);
 
   const loadCameras = useCallback(async () => {
     if (cameras.length > 0) return;
@@ -305,12 +364,32 @@ export function Dvr() {
   }, [loadCameras]);
 
   useEffect(() => {
+    selectedCameraRef.current = selectedCamera;
+    selectedDateRef.current = selectedDate;
+  }, [selectedCamera, selectedDate]);
+
+  useEffect(() => {
     if (!selectedCamera) return;
     loadCalendar();
     setSelectedDate(null);
     setHours([]);
     setSelectedHour(null);
   }, [selectedCamera, loadCalendar]);
+
+  useEffect(() => {
+    intervalRef.current = null;
+    if (!selectedCamera) return;
+    intervalRef.current = setInterval(() => {
+      if (!selectedCameraRef.current) return;
+      setAutoRefreshing(true);
+      loadCalendar().finally(() => setAutoRefreshing(false));
+      const currentDate = selectedDateRef.current;
+      if (currentDate) loadHours(currentDate);
+    }, 30000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [selectedCamera]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -389,13 +468,13 @@ export function Dvr() {
               <option key={c.id} value={c.id}>{c.name || `Cam ${c.id}`}</option>
             ))}
           </select>
-          <button
-            onClick={refreshCalendar}
-            className="p-2 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all"
-            title="Actualizar"
-          >
-            <RefreshCw size={14} className={loadingCalendar ? 'animate-spin' : ''} />
-          </button>
+<button
+              onClick={refreshCalendar}
+              className="p-2 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all"
+              title="Actualizar"
+            >
+              <RefreshCw size={14} className={(loadingCalendar || autoRefreshing) ? 'animate-spin' : ''} />
+            </button>
           <button
             onClick={handleCleanup}
             disabled={cleanupBusy}

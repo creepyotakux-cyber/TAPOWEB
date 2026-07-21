@@ -51,12 +51,24 @@ def recording_status(camera_id: str):
     return {"recording": recording_service.is_recording(camera_id)}
 
 
+@router.get("/check/{filename:path}")
+def check_recording(filename: str):
+    # Extract camera_id from "cam_{id}/YYYYMMDD_HH.mp4"
+    parts = filename.split("/", 1)
+    if len(parts) == 2 and parts[0].startswith("cam_"):
+        camera_id = parts[0][4:]
+    else:
+        camera_id = ""
+    playable, reason = recording_service.is_segment_playable(camera_id, filename)
+    return {"playable": playable, "reason": reason}
+
+
 @router.get("/stream/{filename:path}")
 def stream_recording(filename: str):
     path = recording_service.get_recording_path(filename)
     if path is None:
         raise HTTPException(status_code=404, detail="Recording not found")
-    return FileResponse(str(path), media_type="video/mp4", filename=Path(filename).name)
+    return FileResponse(str(path), media_type="video/mp4")
 
 
 @router.get("/{filename:path}")

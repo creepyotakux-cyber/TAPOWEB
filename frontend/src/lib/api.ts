@@ -79,6 +79,7 @@ export interface HourSegment {
   filename: string;
   size: number;
   modified: number;
+  playable?: boolean;
 }
 
 export const api = {
@@ -108,7 +109,9 @@ export const api = {
   getDvrHours: (cameraId: string, date: string) => request<HourSegment[]>(`/api/recordings/hours/${cameraId}/${date}`),
   cleanupDvr: () => request<{ success: boolean; deleted: number; freed_bytes: number }>(`/api/recordings/cleanup`, { method: 'POST' }),
 
-  recordingStreamUrl: (filename: string) => `/recordings/files/${filename}`,
+  recordingStreamUrl: (filename: string) => `/api/recordings/stream/${filename}`,
+
+  checkRecording: (filename: string) => request<{ playable: boolean; reason: string }>(`/api/recordings/check/${filename}`),
 
   getSnapshots: () => request<Snapshot[]>('/api/snapshots'),
   takeSnapshot: (id: string) => request(`/api/snapshots/${id}`, { method: 'POST' }),

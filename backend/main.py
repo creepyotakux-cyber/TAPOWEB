@@ -25,6 +25,13 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
 def _autostart_recording():
     """Start continuous DVR recording for every enabled camera."""
     try:
+        killed = recording_service.kill_orphans()
+        if killed:
+            logger.info("Killed %d orphan ffmpeg processes from previous run", killed)
+    except Exception as e:
+        logger.warning("Failed to kill orphan ffmpeg processes: %s", e)
+
+    try:
         settings = load_settings()
         cams = settings.get("cameras", [])
         started = 0
