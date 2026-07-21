@@ -280,7 +280,7 @@ class RecordingService:
 
     def get_calendar(self, camera_id: str) -> list[dict]:
         by_date: dict[str, dict] = {}
-        for f in self._iter_segment_files(camera_id, skip_in_progress=True):
+        for f in self._iter_segment_files(camera_id, skip_in_progress=False):
             m = SEGMENT_PATTERN.match(f.name)
             if not m:
                 continue
@@ -353,11 +353,14 @@ class RecordingService:
             m = SEGMENT_PATTERN.match(f.name)
             if not m:
                 continue
-            if skip_name and f.name == skip_name:
-                continue
+            is_in_progress = bool(skip_name and f.name == skip_name)
             hour = int(m.group(4))
             stat = f.stat()
-            playable = stat.st_size >= self.MIN_PLAYABLE_SIZE and self._has_valid_moov(f)
+            playable = (
+                not is_in_progress
+                and stat.st_size >= self.MIN_PLAYABLE_SIZE
+                and self._has_valid_moov(f)
+            )
             hours.append({
                 "hour": hour,
                 "filename": f"cam_{camera_id}/{f.name}",

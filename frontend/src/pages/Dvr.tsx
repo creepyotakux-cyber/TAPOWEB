@@ -155,17 +155,19 @@ function HourGrid({ hours, selectedHour, onSelect }: {
                 ${!isSelected && seg && playable ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent border border-glass-border' : ''}
                 ${!seg || !playable ? 'bg-void/30 text-text-muted border border-glass-border/30 cursor-not-allowed' : ''}
               `}
-              title={seg ? (playable ? `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})` : `${pad(h)}:00 — grabacion en curso`) : ''}
+              title={seg ? (playable ? `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})` : `${pad(h)}:00 — grabando (${formatSize(seg.size)})`) : ''}
             >
               <div className="flex items-center gap-1 font-semibold">
-                {seg && playable ? (
+                {seg && !playable ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-recording animate-pulse" />
+                ) : seg ? (
                   isSelected ? <Circle size={10} className="fill-white text-white" /> : <Play size={10} className="text-live" />
                 ) : null}
                 <span>{pad(h)}:00</span>
               </div>
               {seg ? (
                 <span className={`text-[9px] mt-0.5 ${isSelected ? 'text-white/80' : 'text-text-muted'}`}>
-                  {playable ? formatSize(seg.size) : '...'}
+                  {formatSize(seg.size)}
                 </span>
               ) : (
                 <span className="text-[9px] mt-0.5 text-text-muted opacity-50">—</span>
