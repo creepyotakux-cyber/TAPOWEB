@@ -199,80 +199,85 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
   const MAX_RETRIES = 2;
 
   useEffect(() => {
-    setLoading(true);
-    setError(false);
-    setErrorMsg('');
-    setPreparing(false);
-    retriesRef.current = 0;
-    const v = videoRef.current;
-    if (!v) return;
-
     let cancelled = false;
-    let streamUrl = url;
 
-    const onLoaded = () => { if (!cancelled) setLoading(false); };
-    const onErr = () => {
-      if (cancelled) return;
-      if (retriesRef.current < MAX_RETRIES) {
-        retriesRef.current++;
-        setTimeout(() => {
-          if (!cancelled && v) {
-            setLoading(true);
-            setError(false);
-            v.src = streamUrl;
-            v.load();
-          }
-        }, 2000);
-      } else {
-        setError(true);
-        setLoading(false);
-        const code = v.error?.code;
-        if (code === 3) setErrorMsg('Error de decodificacion — archivo corrupto o incompleto');
-        else if (code === 4) setErrorMsg('Formato no soportado por el navegador');
-        else setErrorMsg('No se pudo cargar el segmento');
-      }
-    };
+    async function loadVideo() {
+      setLoading(true);
+      setError(false);
+      setErrorMsg('');
+      setPreparing(false);
+      retriesRef.current = 0;
+      const v = videoRef.current;
+      if (!v) return;
 
-    api.checkRecording(filename).then((res) => {
-      if (cancelled) return;
-      if (!res.playable) {
-        if (res.reason.includes('moov')) {
-          setPreparing(true);
-          streamUrl = api.prepareRecordingUrl(filename);
-          v.addEventListener('loadeddata', onLoaded);
-          v.addEventListener('canplay', onLoaded);
-          v.addEventListener('error', onErr);
-          v.src = streamUrl;
-          return;
-        }
-        setError(true);
-        setLoading(false);
-        if (res.reason.includes('in progress') || res.reason.includes('recording')) {
-          setErrorMsg('Segmento en grabacion, aun no disponible');
-        } else if (res.reason.includes('small')) {
-          setErrorMsg('Segmento incompleto, grabacion en curso');
+      const onLoaded = () => { if (!cancelled) setLoading(false); };
+      const onErr = () => {
+        if (cancelled) return;
+        if (retriesRef.current < MAX_RETRIES) {
+          retriesRef.current++;
+          setTimeout(() => {
+            if (!cancelled && v) {
+              setLoading(true);
+              setError(false);
+              v.load();
+            }
+          }, 2000);
         } else {
-          setErrorMsg('Segmento no disponible');
+          setError(true);
+          setLoading(false);
+          const code = v.error?.code;
+          if (code === 3) setErrorMsg('Error de decodificacion — archivo corrupto o incompleto');
+          else if (code === 4) setErrorMsg('Formato no soportado por el navegador');
+          else setErrorMsg('No se pudo cargar el segmento');
         }
-        return;
+      };
+
+      v.addEventListener('error', onErr);
+
+      try {
+        const res = await api.checkRecording(filename);
+        if (cancelled) return;
+        if (!res.playable) {
+          if (res.reason.includes('moov')) {
+            setPreparing(true);
+            const prep = await api.prepareRecording(filename);
+            if (cancelled) return;
+            if (!prep.ready) {
+              setError(true);
+              setLoading(false);
+              setErrorMsg('No se pudo preparar el segmento');
+              return;
+            }
+            streamUrl = api.recordingStreamUrl(prep.prepared_filename);
+          } else {
+            setError(true);
+            setLoading(false);
+            if (res.reason.includes('in progress') || res.reason.includes('recording')) {
+              setErrorMsg('Segmento en grabacion, aun no disponible');
+            } else if (res.reason.includes('small')) {
+              setErrorMsg('Segmento incompleto, grabacion en curso');
+            } else {
+              setErrorMsg('Segmento no disponible');
+            }
+            return;
+          }
+        }
+        v.addEventListener('loadeddata', onLoaded);
+        v.addEventListener('canplay', onLoaded);
+        v.src = streamUrl;
+      } catch {
+        if (cancelled) return;
+        v.addEventListener('loadeddata', onLoaded);
+        v.addEventListener('canplay', onLoaded);
+        v.src = streamUrl;
       }
-      v.addEventListener('loadeddata', onLoaded);
-      v.addEventListener('canplay', onLoaded);
-      v.addEventListener('error', onErr);
-      v.src = streamUrl;
-    }).catch(() => {
-      if (cancelled) return;
-      v.addEventListener('loadeddata', onLoaded);
-      v.addEventListener('canplay', onLoaded);
-      v.addEventListener('error', onErr);
-      v.src = streamUrl;
-    });
+    }
+
+    let streamUrl = url;
+    loadVideo();
 
     return () => {
       cancelled = true;
-      v.removeEventListener('loadeddata', onLoaded);
-      v.removeEventListener('canplay', onLoaded);
-      v.removeEventListener('error', onErr);
     };
   }, [filename, url]);
 

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from backend.config import load_settings, build_rtsp_url, get_camera_by_id
+from backend.config import load_settings, build_rtsp_url, get_camera_by_id, RECORDINGS_DIR
 from backend.services.recording_service import recording_service
 
 router = APIRouter(prefix="/api/recordings", tags=["recordings"])
@@ -66,16 +66,19 @@ def check_recording(filename: str):
 def stream_recording(filename: str):
     path = recording_service.get_recording_path(filename)
     if path is None:
+        path = recording_service.get_recording_path(f"_prepare/{filename.replace('/', '_').replace('\\', '_')}")
+    if path is None:
         raise HTTPException(status_code=404, detail="Recording not found")
     return FileResponse(str(path), media_type="video/mp4")
 
 
-@router.get("/prepare/{filename:path}")
+@router.post("/prepare/{filename:path}")
 def prepare_recording(filename: str):
     path, reason = recording_service.prepare_segment(filename)
     if path is None:
         raise HTTPException(status_code=400, detail=reason)
-    return FileResponse(str(path), media_type="video/mp4")
+    prepared_filename = str(path.relative_to(RECORDINGS_DIR)).replace("\\", "/")
+    return {"ready": True, "prepared_filename": prepared_filename}
 
 
 @router.get("/{filename:path}")
