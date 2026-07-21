@@ -124,7 +124,7 @@ function SweepLauncher({ cameraId, active }: { cameraId: string; active: boolean
 
   useEffect(() => {
     if (active && ptz.connected && !sentRef.current) {
-      ptz.patrolSweep(0.5);
+      ptz.patrolSweep(0.7);
       sentRef.current = true;
     }
     if (!active && sentRef.current) {

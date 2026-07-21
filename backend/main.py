@@ -1,3 +1,4 @@
+import threading
 from pathlib import Path
 from contextlib import asynccontextmanager
 import logging
@@ -47,9 +48,36 @@ def _autostart_recording():
         logger.error("Autostart recording error: %s", e)
 
 
+def _autostart_onvif():
+    settings = load_settings()
+    cams = settings.get("cameras", [])
+
+    def _connect_all():
+        from backend.ws.ptz_ws import _get_onvif
+        for cam in cams:
+            if not cam.get("enabled", True):
+                continue
+            cid = cam.get("id")
+            if not cid:
+                continue
+            try:
+                onvif = _get_onvif(cid)
+                if not onvif.is_connected:
+                    result = onvif.connect(cam["ip"], cam["user"], cam["password"])
+                    if result.get("success"):
+                        logger.info("ONVIF pre-connected for camera %s (%s)", cid, cam.get("name", "?"))
+                    else:
+                        logger.debug("ONVIF pre-connect skipped for camera %s: %s", cid, result.get("error"))
+            except Exception as e:
+                logger.debug("ONVIF pre-connect error for camera %s: %s", cid, e)
+
+    threading.Thread(target=_connect_all, daemon=True, name="onvif-autostart").start()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     watchdog.set_services(stream_manager, recording_service)
+    _autostart_onvif()
     _autostart_recording()
     watchdog.start()
     yield

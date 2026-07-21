@@ -39,8 +39,8 @@ class OnvifService:
                 try:
                     from onvif import ONVIFCamera
                     from zeep import Transport
-                    self._transport = Transport(timeout=10, operation_timeout=10)
-                    self._fast_transport = Transport(timeout=5, operation_timeout=5)
+                    self._transport = Transport(timeout=30, operation_timeout=30)
+                    self._fast_transport = Transport(timeout=15, operation_timeout=15)
                     self._cam = ONVIFCamera(ip, port, user, password, transport=self._transport)
                     self._cam.host = ip
                     for ns in list(self._cam.xaddrs.keys()):
@@ -217,8 +217,8 @@ class OnvifService:
         if self._patrol_stop:
             self._patrol_stop.set()
 
-    def patrol_sweep(self, speed: float = 0.5, step_time: float = 1.5,
-                     pause_time: float = 1.0, dwell_time: float = 4.0,
+    def patrol_sweep(self, speed: float = 0.7, step_time: float = 0.8,
+                     pause_time: float = 0.3, dwell_time: float = 3.0,
                      steps_per_direction: int = 6):
         self.stop_patrol()
         self.stop_cruise()
