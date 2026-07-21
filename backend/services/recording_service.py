@@ -489,5 +489,15 @@ class RecordingService:
         except Exception as e:
             return None, f"remux error: {e}"
 
+    def get_recording_path(self, filename: str) -> Path | None:
+        p = (RECORDINGS_DIR / filename).resolve()
+        try:
+            p.relative_to(RECORDINGS_DIR.resolve())
+        except ValueError:
+            return None
+        if p.exists() and p.is_file():
+            return p
+        return None
+
 
 recording_service = RecordingService()
