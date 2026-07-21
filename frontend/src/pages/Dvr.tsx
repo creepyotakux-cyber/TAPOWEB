@@ -146,15 +146,16 @@ function HourGrid({ hours, selectedHour, onSelect }: {
           const isSelected = h === selectedHour;
           const playable = seg?.playable !== false;
           const inProgress = seg?.in_progress === true;
+          const clickable = seg && (playable || inProgress);
           return (
             <button
               key={h}
-              onClick={() => seg && onSelect(h)}
-              disabled={!seg || !playable}
+              onClick={() => clickable && onSelect(h)}
+              disabled={!clickable}
               className={`rounded-lg p-2 flex flex-col items-center justify-center text-xs transition-all min-h-[60px]
                 ${isSelected ? 'bg-accent text-white' : ''}
-                ${!isSelected && seg && playable ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent border border-glass-border' : ''}
-                ${!seg || !playable ? 'bg-void/30 text-text-muted border border-glass-border/30 cursor-not-allowed' : ''}
+                ${!isSelected && clickable ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent border border-glass-border' : ''}
+                ${!clickable ? 'bg-void/30 text-text-muted border border-glass-border/30 cursor-not-allowed' : ''}
               `}
               title={seg ? (inProgress ? `${pad(h)}:00 - ${pad(h + 1)}:00 (grabando - ${formatSize(seg.size)})` : `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})`) : ''}
             >
