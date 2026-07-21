@@ -163,6 +163,8 @@ class RecordingService:
                 continue
             out.append(f)
         return out
+
+    def stop(self, camera_id: str) -> dict:
         proc = self._processes.pop(camera_id, None)
         path = self._paths.pop(camera_id, None)
         self._names.pop(camera_id, None)
