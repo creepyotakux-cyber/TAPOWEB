@@ -7,7 +7,7 @@ import datetime
 import logging
 import os
 from pathlib import Path
-from backend.config import RECORDINGS_DIR
+from backend.config import RECORDINGS_DIR, TIMEZONE
 
 logger = logging.getLogger("recording_service")
 
@@ -91,7 +91,7 @@ class RecordingService:
             d = self._camera_dir(camera_id)
             if not d.exists():
                 return
-            name = datetime.datetime.now().strftime("%Y%m%d_%H.mp4")
+            name = datetime.datetime.now(TIMEZONE).strftime("%Y%m%d_%H.mp4")
             f = d / name
             if not f.exists():
                 return
@@ -113,6 +113,34 @@ class RecordingService:
         except OSError:
             pass
 
+    def _cleanup_broken_segments(self, camera_id: str) -> int:
+        """Remove MP4 files from previous hours that lack a valid moov atom.
+        These are orphaned by unclean ffmpeg shutdowns and cannot be played."""
+        d = self._camera_dir(camera_id)
+        if not d.exists():
+            return 0
+        current_name = datetime.datetime.now(TIMEZONE).strftime("%Y%m%d_%H.mp4")
+        deleted = 0
+        for f in list(d.glob("*.mp4")):
+            if not SEGMENT_PATTERN.match(f.name):
+                continue
+            if f.name == current_name:
+                continue
+            try:
+                if f.stat().st_size < self.MIN_PLAYABLE_SIZE:
+                    f.unlink(missing_ok=True)
+                    deleted += 1
+                    continue
+                if not self._has_valid_moov(f):
+                    logger.warning("Camera %s: removing broken segment %s (no moov atom)", camera_id, f.name)
+                    f.unlink(missing_ok=True)
+                    deleted += 1
+            except OSError:
+                pass
+        if deleted:
+            logger.info("Camera %s: cleaned up %d broken segment(s)", camera_id, deleted)
+        return deleted
+
     def start(self, camera_id: str, rtsp_url: str, camera_name: str = "cam") -> dict:
         if camera_id in self._processes:
             proc = self._processes[camera_id]
@@ -120,11 +148,14 @@ class RecordingService:
                 return {"success": True, "already_running": True, "message": "DVR recording already active"}
 
         self._names[camera_id] = camera_name
+        self._cleanup_broken_segments(camera_id)
         self._delete_stale_current_segment(camera_id)
         out_dir = self._ensure_dir(camera_id)
 
         ffmpeg = self._resolve_ffmpeg()
         seg_path = str(out_dir / "%Y%m%d_%H.mp4")
+
+        creation = datetime.datetime.now(TIMEZONE).strftime("%Y-%m-%dT%H:%M:%S-04:00")
 
         cmd = [
             ffmpeg, "-y",
@@ -132,8 +163,8 @@ class RecordingService:
             "-timeout", "15000000",
             "-fflags", "+genpts",
             "-i", rtsp_url,
-            "-an",
             "-c:v", "copy",
+            "-c:a", "aac",
             "-f", "segment",
             "-segment_time", "3600",
             "-segment_format", "mp4",
@@ -141,7 +172,8 @@ class RecordingService:
             "-reset_timestamps", "1",
             "-segment_atclocktime", "1",
             "-segment_start_number", "0",
-            "-movflags", "+faststart",
+            "-segment_format_options", "movflags=+frag_keyframe+empty_moov+default_base_moof",
+            "-metadata", f"creation_time={creation}",
             seg_path,
         ]
 
@@ -151,6 +183,7 @@ class RecordingService:
                 stdin=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
+                env={**os.environ, "TZ": "America/Caracas"},
                 creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
             )
             t = threading.Thread(
@@ -188,7 +221,7 @@ class RecordingService:
         proc = self._processes.get(camera_id)
         if proc is None or proc.poll() is not None:
             return None
-        return datetime.datetime.now().strftime("%Y%m%d_%H.mp4")
+        return datetime.datetime.now(TIMEZONE).strftime("%Y%m%d_%H.mp4")
 
     def _iter_segment_files(self, camera_id: str, skip_in_progress: bool = False):
         d = self._camera_dir(camera_id)
@@ -213,14 +246,22 @@ class RecordingService:
         try:
             if proc.stdin:
                 try:
-                    proc.stdin.close()
+                    proc.stdin.write(b"q")
+                    proc.stdin.flush()
                 except Exception:
                     pass
             try:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=2)
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=2)
         except Exception:
             pass
         return {"success": True, "file": path}

@@ -1,8 +1,8 @@
 import subprocess
 import shutil
-import time
+import datetime
 from pathlib import Path
-from backend.config import SNAPSHOTS_DIR
+from backend.config import SNAPSHOTS_DIR, TIMEZONE
 
 
 class SnapshotService:
@@ -18,7 +18,7 @@ class SnapshotService:
 
     def capture(self, rtsp_url: str, camera_name: str = "cam") -> dict:
         name = camera_name.replace(" ", "_")
-        ts = time.strftime("%Y%m%d_%H%M%S")
+        ts = datetime.datetime.now(TIMEZONE).strftime("%Y%m%d_%H%M%S")
         filename = f"{name}_{ts}.jpg"
         filepath = str(SNAPSHOTS_DIR / filename)
 

@@ -1,10 +1,11 @@
 import subprocess
 import shutil
 import time
+import datetime
 import threading
 import logging
 from pathlib import Path
-from backend.config import load_settings, build_rtsp_url, HLS_DIR, RECORDINGS_DIR
+from backend.config import load_settings, build_rtsp_url, HLS_DIR, RECORDINGS_DIR, TIMEZONE
 
 logger = logging.getLogger("watchdog")
 
@@ -242,12 +243,11 @@ class Watchdog:
         but the file hasn't grown past 0 bytes for more than 90 seconds.
         This catches cases where RTSP connects but no frames are delivered
         (e.g. account desync, network glitch after open)."""
-        import datetime
         try:
             d = RECORDINGS_DIR / f"cam_{camera_id}"
             if not d.exists():
                 return False
-            name = datetime.datetime.now().strftime("%Y%m%d_%H.mp4")
+            name = datetime.datetime.now(TIMEZONE).strftime("%Y%m%d_%H.mp4")
             f = d / name
             if not f.exists():
                 return False

@@ -2,6 +2,9 @@ import json
 import logging
 from pathlib import Path
 from uuid import uuid4
+from zoneinfo import ZoneInfo
+
+TIMEZONE = ZoneInfo("America/Caracas")
 
 logger = logging.getLogger("config")
 
