@@ -43,6 +43,9 @@ def _autostart_recording():
                 continue
             if recording_service.is_recording(cid):
                 continue
+            cam_dir = RECORDINGS_DIR / f"cam_{cid}"
+            if (cam_dir / "_pause").exists():
+                continue
             url = build_rtsp_url(cam)
             result = recording_service.start(cid, url, cam.get("name", f"cam{cid}"))
             if result.get("success"):
@@ -143,7 +146,7 @@ if FRONTEND_DIR.exists():
             if scope["type"] != "http":
                 return await self.app(scope, receive, send)
             path = scope["path"]
-            if path.startswith("/api/") or path.startswith("/ws/") or path.startswith("/hls/") or path.startswith("/recordings/") or path.startswith("/snapshots/") or path.startswith("/assets/"):
+            if path.startswith("/api/") or path.startswith("/ws/") or path.startswith("/hls/") or path.startswith("/recordings/") or path.startswith("/snapshots/") or path.startswith("/assets/") or path == "/favicon.svg":
                 return await self.app(scope, receive, send)
             from starlette.responses import Response
             index_file = FRONTEND_DIR / "index.html"

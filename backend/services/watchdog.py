@@ -203,6 +203,9 @@ class Watchdog:
             camera_id = cam.get("id", "")
             if not camera_id or not cam.get("enabled", True):
                 continue
+            cam_dir = RECORDINGS_DIR / f"cam_{camera_id}"
+            if (cam_dir / "_pause").exists():
+                continue
             if not self._recording_service.is_recording(camera_id):
                 # Always-on: start any enabled camera that is not recording.
                 rtsp_url = build_rtsp_url(cam)

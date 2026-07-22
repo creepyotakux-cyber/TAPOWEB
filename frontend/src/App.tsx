@@ -7,8 +7,12 @@ import { Dvr } from './pages/Dvr';
 import { api } from './lib/api';
 
 export default function App() {
-  const [page, setPage] = useState('dashboard');
+  const [page, setPage] = useState(() => sessionStorage.getItem('activePage') || 'dashboard');
   const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    sessionStorage.setItem('activePage', page);
+  }, [page]);
 
   useEffect(() => {
     api.getSettings().then(s => {

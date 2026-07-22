@@ -149,11 +149,32 @@ class RecordingService:
 
         self._names[camera_id] = camera_name
         self._cleanup_broken_segments(camera_id)
-        self._delete_stale_current_segment(camera_id)
+
         out_dir = self._ensure_dir(camera_id)
+        now = datetime.datetime.now(TIMEZONE)
+        current_name = now.strftime("%Y%m%d_%H.mp4")
+        current_file = out_dir / current_name
+        if current_file.exists() and current_file.stat().st_size > 0:
+            backup_name = f"{current_name}.backup_{now.strftime('%H%M%S')}"
+            try:
+                shutil.move(str(current_file), str(out_dir / backup_name))
+                logger.warning("Camera %s: preserved existing segment as %s", camera_id, backup_name)
+            except OSError:
+                pass
+
+        self._delete_stale_current_segment(camera_id)
+
+        live_dir = out_dir / "_live"
+        live_dir.mkdir(parents=True, exist_ok=True)
+        for old in live_dir.glob("*.ts"):
+            old.unlink(missing_ok=True)
+        pl = live_dir / "playlist.m3u8"
+        pl.unlink(missing_ok=True)
 
         ffmpeg = self._resolve_ffmpeg()
         seg_path = str(out_dir / "%Y%m%d_%H.mp4")
+        hls_seg_pattern = str(live_dir / "seg_%05d.ts")
+        hls_playlist = str(pl)
 
         creation = datetime.datetime.now(TIMEZONE).strftime("%Y-%m-%dT%H:%M:%S-04:00")
 
@@ -172,9 +193,17 @@ class RecordingService:
             "-reset_timestamps", "1",
             "-segment_atclocktime", "1",
             "-segment_start_number", "0",
-            "-segment_format_options", "movflags=+frag_keyframe+empty_moov+default_base_moof",
+            "-segment_format_options", "movflags=+frag_keyframe",
             "-metadata", f"creation_time={creation}",
             seg_path,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-f", "hls",
+            "-hls_time", "2",
+            "-hls_list_size", "3600",
+            "-hls_flags", "delete_segments+append_list+omit_endlist",
+            "-hls_segment_filename", hls_seg_pattern,
+            hls_playlist,
         ]
 
         try:
@@ -262,6 +291,14 @@ class RecordingService:
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait(timeout=2)
+        except Exception:
+            pass
+        live_dir = self._camera_dir(camera_id) / "_live"
+        try:
+            for f in live_dir.glob("*.ts"):
+                f.unlink(missing_ok=True)
+            pl = live_dir / "playlist.m3u8"
+            pl.unlink(missing_ok=True)
         except Exception:
             pass
         return {"success": True, "file": path}

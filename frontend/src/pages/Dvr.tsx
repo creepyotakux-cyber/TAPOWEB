@@ -3,6 +3,7 @@ import {
   Video, Play, Film, Trash2, RefreshCw,
   ChevronLeft, ChevronRight, Circle, X, Download, Loader2,
 } from 'lucide-react';
+import type HlsType from 'hls.js';
 import { api } from '../lib/api';
 import type { Camera, CalendarDay, HourSegment } from '../lib/api';
 
@@ -198,9 +199,11 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
   const [preparing, setPreparing] = useState(false);
   const retriesRef = useRef(0);
   const MAX_RETRIES = 2;
+  const isInProgressRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    let hls: HlsType | null = null;
 
     async function loadVideo() {
       setLoading(true);
@@ -238,6 +241,7 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
       try {
         const res = await api.checkRecording(filename);
         if (cancelled) return;
+        isInProgressRef.current = res.playable && res.reason === 'in progress';
         if (!res.playable) {
           if (res.reason.includes('moov')) {
             setPreparing(true);
@@ -273,9 +277,40 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
             return;
           }
         }
-        v.addEventListener('loadeddata', onLoaded);
-        v.addEventListener('canplay', onLoaded);
-        v.src = streamUrl;
+
+        if (isInProgressRef.current) {
+          const cameraFolder = filename.split('/')[0];
+          const hlsUrl = `/recordings/files/${cameraFolder}/_live/playlist.m3u8`;
+          try {
+            const Hls = (await import('hls.js')).default;
+            if (cancelled) return;
+            hls = new Hls({ liveSyncDurationCount: 3, liveMaxLatencyDurationCount: 10 });
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(v);
+            hls.on((Hls as any).Events.MANIFEST_PARSED, () => {
+              if (cancelled) return;
+              (hls as any).startLoad(0);
+              setLoading(false);
+              v.play();
+            });
+            hls.on((Hls as any).Events.ERROR, (_ev: any, data: any) => {
+              if (data.fatal) {
+                hls?.destroy();
+                hls = null;
+                v.src = streamUrl;
+              }
+            });
+          } catch {
+            if (cancelled) return;
+            v.addEventListener('loadeddata', onLoaded);
+            v.addEventListener('canplay', onLoaded);
+            v.src = streamUrl;
+          }
+        } else {
+          v.addEventListener('loadeddata', onLoaded);
+          v.addEventListener('canplay', onLoaded);
+          v.src = streamUrl;
+        }
       } catch {
         if (cancelled) return;
         v.addEventListener('loadeddata', onLoaded);
@@ -289,6 +324,7 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
 
     return () => {
       cancelled = true;
+      if (hls) hls.destroy();
     };
   }, [filename, url]);
 
