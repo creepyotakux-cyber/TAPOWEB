@@ -21,6 +21,7 @@ class RecordingService:
         self._processes: dict[str, subprocess.Popen] = {}
         self._paths: dict[str, str] = {}
         self._names: dict[str, str] = {}
+        self._last_backup: dict[str, Path] = {}
         self._cleanup_stop: threading.Event | None = None
         self._cleanup_thread: threading.Thread | None = None
 
@@ -156,8 +157,10 @@ class RecordingService:
         current_file = out_dir / current_name
         if current_file.exists() and current_file.stat().st_size > 0:
             backup_name = f"{current_name}.backup_{now.strftime('%H%M%S')}"
+            backup_path = out_dir / backup_name
             try:
-                shutil.move(str(current_file), str(out_dir / backup_name))
+                shutil.move(str(current_file), str(backup_path))
+                self._last_backup[camera_id] = backup_path
                 logger.warning("Camera %s: preserved existing segment as %s", camera_id, backup_name)
             except OSError:
                 pass
@@ -238,7 +241,33 @@ class RecordingService:
                 low = line.lower()
                 if any(k in low for k in ("error", "denied", "401", "403", "refused", "timed out", "unauthorized", "not permitted")):
                     logger.warning("Camera %s DVR: %s", camera_id, line)
+                if "error opening input" in low or "no route to host" in low or "connection refused" in low:
+                    self._restore_backup(camera_id)
         except Exception:
+            pass
+
+    def _restore_backup(self, camera_id: str):
+        out_dir = self._camera_dir(camera_id)
+        now = datetime.datetime.now(TIMEZONE)
+        current_name = now.strftime("%Y%m%d_%H.mp4")
+        current_file = out_dir / current_name
+        best: tuple[int, Path | None] = (0, None)
+        for f in out_dir.glob(f"{current_name}.backup_*"):
+            try:
+                sz = f.stat().st_size
+                if sz > best[0]:
+                    best = (sz, f)
+            except OSError:
+                pass
+        if best[1] is None:
+            return
+        try:
+            if current_file.exists() and current_file.stat().st_size >= best[0]:
+                return
+            shutil.copy2(str(best[1]), str(current_file))
+            self._last_backup[camera_id] = best[1]
+            logger.warning("Camera %s: restored backup (%dMB) after connection failure", camera_id, best[0] // (1024 * 1024))
+        except OSError:
             pass
 
     def _in_progress_filename(self, camera_id: str) -> str | None:
@@ -270,6 +299,7 @@ class RecordingService:
         proc = self._processes.pop(camera_id, None)
         path = self._paths.pop(camera_id, None)
         self._names.pop(camera_id, None)
+        self._last_backup.pop(camera_id, None)
         if proc is None:
             return {"success": False, "error": "not recording"}
         try:
