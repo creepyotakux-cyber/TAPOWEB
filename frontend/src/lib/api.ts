@@ -83,6 +83,14 @@ export interface HourSegment {
   in_progress?: boolean;
 }
 
+export interface Settings {
+  grid_size: number;
+  theme: string;
+  view_mode: string;
+  main_camera: string;
+  recording_retention_days?: number;
+}
+
 export const api = {
   getCameras: () => request<Camera[]>('/api/cameras'),
   addCamera: (cam: Partial<Camera>) => request<{ cameras: Camera[] }>('/api/cameras', { method: 'POST', body: JSON.stringify(cam) }),

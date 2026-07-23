@@ -279,45 +279,45 @@ export function Dashboard() {
 
   return (
     <div className="h-full flex bg-void">
-      <div className="flex-1 flex flex-col p-4 gap-3 min-w-0">
-        <div className="flex items-center justify-between shrink-0">
+      <div className="flex-1 flex flex-col p-3 gap-3 min-w-0">
+        <div className="flex items-center justify-between shrink-0 h-20 px-6 bg-[#0A192F] border-b-2 border-accent/40 shadow-[0_2px_16px_rgba(34,211,238,0.15)] rounded-xl">
           <div>
-            <h1 className="text-lg font-bold text-text-primary">Sistema de Vigilancia AGARVEN</h1>
-            <p className="text-xs text-text-muted">
+            <h1 className="text-2xl font-bold text-white tracking-wide">Sistema de Vigilancia AGARVEN</h1>
+            <p className="text-base text-white/80">
               {cameras.length} camaras
               {focusedCamera !== null && cameras.find(c => c.id === focusedCamera)
                 ? ` \u00b7 Flechas: ${cameras.find(c => c.id === focusedCamera)!.name}${kbPtzConnected ? ' \u2713' : ' ...'}`
                 : ' \u00b7 Hover para flechas PTZ'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <button
               onClick={toggleView}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-elevated border border-glass-border hover:border-accent rounded-lg text-sm transition-all"
+              className="flex items-center gap-3 px-6 py-3 bg-elevated border border-glass-border hover:border-accent rounded-lg text-lg font-semibold transition-all"
               title={viewMode === 'grid' ? 'Cambiar a vista L+MAIN' : 'Cambiar a vista Grid'}
             >
-              {viewMode === 'grid' ? <Columns size={14} /> : <LayoutGrid size={14} />}
+              {viewMode === 'grid' ? <Columns size={22} /> : <LayoutGrid size={22} />}
               <span className="hidden sm:inline">{viewMode === 'grid' ? 'L+MAIN' : 'Grid'}</span>
             </button>
             {viewMode === 'grid' && (
               <select
                 value={gridSize}
                 onChange={e => { setGridSize(Number(e.target.value)); api.updateSettings({ grid_size: Number(e.target.value) }); }}
-                className="bg-elevated border border-glass-border rounded-lg px-3 py-1.5 text-sm"
+                className="bg-elevated border border-glass-border rounded-lg px-6 py-3 text-lg font-semibold"
               >
                 {[2,3,4,5,6].map(n => <option key={n} value={n}>{n}x{n}</option>)}
               </select>
             )}
             <button
               onClick={toggleSweep}
-              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-all ${sweepActive ? 'bg-accent text-white border-accent' : 'bg-elevated border-glass-border hover:border-accent'}`}
+              className={`flex items-center gap-3 px-6 py-3 border rounded-lg text-lg font-semibold transition-all ${sweepActive ? 'bg-accent text-white border-accent' : 'bg-elevated border-glass-border hover:border-accent'}`}
               title={sweepActive ? `Detener patrullaje en ${sweepCameraIds.length} camaras` : 'Patrullaje horizontal en todas las camaras disponibles'}
             >
-              <Radar size={14} className={sweepActive ? 'animate-spin' : ''} />
+              <Radar size={22} className={sweepActive ? 'animate-spin' : ''} />
               <span className="hidden sm:inline">{sweepActive ? `Detener (${sweepCameraIds.length})` : 'Patrullaje'}</span>
             </button>
-            <button onClick={load} className="p-1.5 bg-elevated border border-glass-border hover:border-accent rounded-lg transition-all">
-              <RefreshCw size={14} />
+            <button onClick={load} className="p-3 bg-elevated border border-glass-border hover:border-accent rounded-lg transition-all">
+              <RefreshCw size={22} />
             </button>
           </div>
         </div>

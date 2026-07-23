@@ -368,13 +368,12 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
             {errorMsg}
           </div>
         )}
-        <video
-          ref={videoRef}
-          controls
-          autoPlay
-          preload="metadata"
-          className="w-full h-full object-contain"
-        />
+<video
+  ref={videoRef}
+  controls
+  preload="metadata"
+  className="w-full h-full object-contain"
+/>
       </div>
     </div>
   );
