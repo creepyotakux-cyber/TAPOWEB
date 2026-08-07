@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit3, Trash2, Save, X, Camera as CameraIcon } from 'lucide-react';
+import { Plus, Edit3, Trash2, Save, X, Camera as CameraIcon, Eye, EyeOff } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Camera } from '../lib/api';
 
@@ -8,13 +8,34 @@ export function Config() {
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Partial<Camera>>({ name: '', ip: '', user: '', password: '', model: '' });
+  const [trailerCams, setTrailerCams] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const cams = await api.getCameras();
     setCameras(cams);
+    try {
+      const res = await api.getTrailerCameras();
+      setTrailerCams(new Set(res.allowed_camera_ids));
+    } catch {}
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const toggleTrailerCam = async (camId: string) => {
+    let next: string[];
+    if (trailerCams.has(camId)) {
+      next = [...trailerCams].filter(id => id !== camId);
+    } else {
+      next = [...trailerCams, camId];
+    }
+    try {
+      await api.setTrailerCameras(next);
+      setTrailerCams(new Set(next));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al guardar';
+      alert(msg);
+    }
+  };
 
   const handleSave = async () => {
     const ip = (form.ip || '').trim();
@@ -62,7 +83,7 @@ export function Config() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
         {cameras.map((cam) => (
           <div key={cam.id} className="bg-surface border border-glass-border rounded-xl p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-accent-bg flex items-center justify-center">
@@ -89,11 +110,36 @@ export function Config() {
             <p>No hay camaras configuradas</p>
           </div>
         )}
+
+        {cameras.length > 0 && (
+          <div className="mt-4 bg-surface border border-glass-border rounded-xl p-4">
+            <h2 className="text-base font-bold text-text-primary mb-1">Camaras del Trailer</h2>
+            <p className="text-xs text-text-muted mb-3">Selecciona que camaras puede ver el operador (trailer)</p>
+            <div className="space-y-2">
+              {cameras.map(cam => (
+                <label key={cam.id} className="flex items-center gap-3 px-3 py-2 bg-elevated rounded-lg cursor-pointer hover:bg-glass-border transition-all">
+                  <input
+                    type="checkbox"
+                    checked={trailerCams.has(cam.id)}
+                    onChange={() => toggleTrailerCam(cam.id)}
+                    className="w-4 h-4 rounded accent-accent"
+                  />
+                  <span className="flex-1 text-sm text-text-primary">{cam.name}</span>
+                  <span className="text-xs text-text-muted">{cam.ip}</span>
+                  {trailerCams.has(cam.id)
+                    ? <Eye size={14} className="text-live" />
+                    : <EyeOff size={14} className="text-text-muted" />
+                  }
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowForm(false)}>
-          <div className="bg-surface border border-glass-border rounded-2xl p-6 w-[420px] shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
+          <div className="bg-surface border border-glass-border rounded-2xl p-6 w-full max-w-[420px] max-h-[90dvh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-text-primary">{editing !== null ? 'Editar Camara' : 'Agregar Camara'}</h2>
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-elevated rounded-lg"><X size={18} /></button>

@@ -1,17 +1,30 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends
 from backend.config import load_settings, save_settings, DEFAULT_CAMERA, generate_id, get_camera_by_id
 from backend.models import CameraCreate, CameraUpdate, ReorderRequest
+from backend.auth import get_current_user_http
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 
 
+def _require_auth(request: Request):
+    return get_current_user_http(request)
+
+
 @router.get("")
-def list_cameras():
-    return load_settings().get("cameras", [])
+def list_cameras(request: Request):
+    user = _require_auth(request)
+    cams = load_settings().get("cameras", [])
+    if user["role"] == "traileradv":
+        allowed = set(user.get("allowed_camera_ids", []))
+        cams = [c for c in cams if c.get("id") in allowed]
+    return cams
 
 
 @router.post("")
-def add_camera(cam: CameraCreate):
+def add_camera(cam: CameraCreate, request: Request):
+    user = _require_auth(request)
+    if user["role"] != "baseadv":
+        raise HTTPException(status_code=403, detail="Solo el administrador puede agregar camaras")
     settings = load_settings()
     new_cam = {**DEFAULT_CAMERA, **cam.model_dump(), "id": generate_id()}
     if not new_cam["name"]:
@@ -27,7 +40,10 @@ def add_camera(cam: CameraCreate):
 
 
 @router.put("/reorder")
-def reorder_cameras(req: ReorderRequest):
+def reorder_cameras(req: ReorderRequest, request: Request):
+    user = _require_auth(request)
+    if user["role"] != "baseadv":
+        raise HTTPException(status_code=403, detail="Solo el administrador puede reordenar")
     settings = load_settings()
     cams = settings.get("cameras", [])
     if req.from_index < 0 or req.from_index >= len(cams):
@@ -41,7 +57,8 @@ def reorder_cameras(req: ReorderRequest):
 
 
 @router.get("/settings")
-def get_settings():
+def get_settings(request: Request):
+    _require_auth(request)
     s = load_settings()
     return {
         "grid_size": s.get("grid_size", 4),
@@ -52,7 +69,8 @@ def get_settings():
 
 
 @router.put("/settings")
-def update_settings(body: dict):
+def update_settings(body: dict, request: Request):
+    _require_auth(request)
     settings = load_settings()
     if "grid_size" in body:
         settings["grid_size"] = max(2, min(6, body["grid_size"]))
@@ -73,7 +91,10 @@ def update_settings(body: dict):
 
 
 @router.put("/{camera_id}")
-def update_camera(camera_id: str, cam: CameraUpdate):
+def update_camera(camera_id: str, cam: CameraUpdate, request: Request):
+    user = _require_auth(request)
+    if user["role"] != "baseadv":
+        raise HTTPException(status_code=403, detail="Solo el administrador puede modificar camaras")
     settings = load_settings()
     cameras = settings.get("cameras", [])
     new_ip = (cam.ip or "").strip() if cam.ip is not None else None
@@ -93,7 +114,10 @@ def update_camera(camera_id: str, cam: CameraUpdate):
 
 
 @router.delete("/{camera_id}")
-def remove_camera(camera_id: str):
+def remove_camera(camera_id: str, request: Request):
+    user = _require_auth(request)
+    if user["role"] != "baseadv":
+        raise HTTPException(status_code=403, detail="Solo el administrador puede eliminar camaras")
     settings = load_settings()
     cameras = settings.get("cameras", [])
     settings["cameras"] = [c for c in cameras if c.get("id") != camera_id]

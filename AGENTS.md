@@ -16,7 +16,7 @@ WebTapo/
 │   │   ├── cameras.json      CONFIGURACIÓN DE CÁMARAS (editar con cuidado)
 │   │   ├── hls/              playlists HLS por cámara
 │   │   └── snapshots/        JPG puntuales
-│   └── recordings → ~/Documents/TAPO/RECORDS   DVR continuo segmentado por hora (se crea solo)
+│   └── recordings → ~/Documents/TAPO/RECORDS   DVR continuo segmentado en cam_<id>/DD_MM_YYYY/ (se crea solo)
 │   ├── routers/
 │   │   ├── cameras.py        CRUD + settings (valida IP única → 409)
 │   │   ├── stream.py         HLS start/stop/playlist
@@ -38,8 +38,8 @@ WebTapo/
         ├── App.tsx           layout + theme
         ├── lib/api.ts        cliente API + tipos (Camera, WatchdogStatus...)
         ├── pages/            Dashboard / Config / Dvr / Recordings
-        ├── components/       CameraTile / PTZPanel / Sidebar
-        └── hooks/            useMjpegWs / usePtzWs / useKeyboardPtz
+        ├── components/       CameraTile / PTZPanel / Sidebar / MobileNav
+        └── hooks/            useMjpegWs / usePtzWs / useKeyboardPtz / useIsMobile
 ```
 
 ## Cómo se identifica una cámara
@@ -161,7 +161,7 @@ Toda la grilla soporta PTZ:
 |--------------|--------------------|--------------------------------------------|-------------------|-------------------|
 | Grilla MJPEG | `mjpeg_manager`    | `-i rtsp.. -vf scale=640:-2 -c:v mjpeg -f image2pipe pipe:1` | **sub** (stream2) | stdout → WS binario |
 | Visor grande | `stream_manager`   | `-c:v copy -c:a copy -f hls -hls_time 1` | **sub** (stream2) | `cam_<id>.m3u8` + `.ts` |
-| DVR          | `recording_service`| `-c:v copy -f segment -segment_time 3600` | **main** (stream1) | `cam_<id>/YYYYMMDD_HH.mp4` |
+| DVR          | `recording_service`| `-c:v copy -f segment -segment_time 3600` | **main** (stream1) | `cam_<id>/DD_MM_YYYY/YYYYMMDD_HH.mp4` |
 | Snapshot     | `snapshot_service` | `-frames:v 1`                              | **sub** (stream2) | `<name>_<ts>.jpg` |
 | Black-detect | `watchdog`         | `-t 3 -vf signalstats -f null -`           | main (stream1)    | stderr parseado |
 
@@ -176,7 +176,10 @@ URL RTSP:
 - **Todas las cámaras habilitadas graban siempre.** No hay botón de "Iniciar/Detener grabación" en la UI.
 - Al arrancar el backend, `main._autostart_recording()` llama a `recording_service.start(id, url, name)` por cada cámara `enabled=true`.
 - El watchdog (`_check_recordings`) **reinicia** la grabación si el proceso murió, y **arranca** la de cualquier cámara habilitada que no esté grabando (defensa always-on).
-- Los `.mp4` se segmentan por hora: `cam_<id>/YYYYMMDD_HH.mp4`.
+- Los `.mp4` se guardan en carpetas por día: `cam_<id>/DD_MM_YYYY/YYYYMMDD_HH.mp4`.
+- Al arrancar el backend, los segmentos planos previos se migran automáticamente a sus carpetas de día correspondientes.
+- Las carpetas de día (hoy y mañana) se pre-crean para evitar que ffmpeg falle a medianoche (ffmpeg con `-strftime` no crea directorios).
+- Las carpetas de día vacías se eliminan automáticamente durante la limpieza por retención.
 - El endpoint `POST /api/recordings/{id}/stop` sigue expuesto por compatibilidad, pero el watchdog lo reinicia en <=10 s. **No hay botón UI para detener.**
 - La grilla (`CameraTile`) muestra siempre el badge REC.
 

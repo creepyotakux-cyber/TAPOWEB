@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type HlsType from 'hls.js';
 import { api } from '../lib/api';
+import { getToken } from '../lib/auth';
 import type { Camera, CalendarDay, HourSegment } from '../lib/api';
 
 const WEEKDAYS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
@@ -75,15 +76,15 @@ function CalendarView({ days, selectedDate, onSelect }: {
 
   return (
     <div className="bg-surface border border-glass-border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <button onClick={prevMonth} className="p-1.5 rounded hover:bg-elevated transition-all">
-          <ChevronLeft size={16} className="text-text-secondary" />
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <button onClick={prevMonth} className="p-3 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all">
+          <ChevronLeft size={24} className="text-current" />
         </button>
         <h3 className="text-sm font-semibold text-text-primary">
           {MONTHS_ES[viewMonth]} {viewYear}
         </h3>
-        <button onClick={nextMonth} className="p-1.5 rounded hover:bg-elevated transition-all">
-          <ChevronRight size={16} className="text-text-secondary" />
+        <button onClick={nextMonth} className="p-3 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all">
+          <ChevronRight size={24} className="text-current" />
         </button>
       </div>
 
@@ -141,7 +142,7 @@ function HourGrid({ hours, selectedHour, onSelect }: {
   return (
     <div className="bg-surface border border-glass-border rounded-lg p-4">
       <h3 className="text-sm font-semibold text-text-primary mb-3">Horas disponibles</h3>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-4 lg:grid-cols-6 gap-2">
         {all24.map((h) => {
           const seg = byHour.get(h);
           const isSelected = h === selectedHour;
@@ -267,7 +268,9 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
           } else {
             setError(true);
             setLoading(false);
-            if (res.reason.includes('in progress') || res.reason.includes('recording')) {
+            if (res.reason.includes('codec')) {
+              setErrorMsg('Formato de video no soportado por el navegador — la grabacion usa un codec incompatible. Cambia la camara a H.264 en la app Tapo.');
+            } else if (res.reason.includes('in progress') || res.reason.includes('recording')) {
               setErrorMsg('Segmento en grabacion, aun no disponible');
             } else if (res.reason.includes('small')) {
               setErrorMsg('Segmento incompleto, grabacion en curso');
@@ -506,7 +509,7 @@ export function Dvr() {
   const selectedCam = cameras.find(c => c.id === selectedCamera);
   const cameraName = selectedCam?.name ?? 'Cam';
   const segUrl = selectedSeg ? api.recordingStreamUrl(selectedSeg.filename) : null;
-  const segDownloadUrl = selectedSeg ? `/api/recordings/${selectedSeg.filename}` : null;
+  const segDownloadUrl = selectedSeg ? `/api/recordings/${selectedSeg.filename}?token=${getToken() ?? ''}` : null;
   const segTitle = selectedSeg && selectedDate
     ? `${cameraName} - ${selectedDate} ${pad(selectedSeg.hour)}:00 - ${pad((selectedSeg.hour + 1) % 24)}:00${selectedSeg.in_progress ? ' (grabando)' : ''}`
     : '';

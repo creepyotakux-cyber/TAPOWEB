@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CameraOff, Radio, Maximize2, Settings, Aperture, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Camera, CameraOff, Radio, Maximize2, Settings, Aperture, RefreshCw, AlertTriangle, MoreVertical } from 'lucide-react';
 import { useMjpegWs } from '../hooks/useMjpegWs';
 import { api } from '../lib/api';
 import type { WatchdogStatus, MjpegStatus } from '../lib/api';
@@ -68,7 +68,7 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, mjpeg, onOpenPtz, 
   return (
     <div
       ref={containerRef}
-      className={`relative bg-elevated border border-glass-border rounded-lg overflow-hidden group cursor-pointer min-h-[180px] h-full ${isFullscreen ? 'flex flex-col' : ''} ${recovering ? 'ring-2 ring-warning/50' : ''} ${blackDetected ? 'ring-2 ring-danger/50' : ''} ${className ?? ''}`}
+      className={`relative bg-elevated border border-glass-border rounded-lg overflow-hidden group cursor-pointer min-h-[140px] lg:min-h-[180px] h-full ${isFullscreen ? 'flex flex-col' : ''} ${recovering ? 'ring-2 ring-warning/50' : ''} ${blackDetected ? 'ring-2 ring-danger/50' : ''} ${className ?? ''}`}
       onDoubleClick={enterFullscreen}
       onContextMenu={(e) => { e.preventDefault(); setMenuOpen(!menuOpen); }}
       onMouseEnter={() => onFocus?.(cameraId)}
@@ -135,10 +135,22 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, mjpeg, onOpenPtz, 
           {(isReconnecting || recovering) && <RefreshCw size={12} className="text-warning animate-spin" />}
           {(isReconnecting || recovering) && <span className="text-[10px] text-warning font-bold">RETRY</span>}
           {!hasSignal && !isReconnecting && !recovering && <span className="text-[10px] text-text-muted font-bold">OFFLINE</span>}
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+            className="lg:hidden p-1 -mr-1 text-text-secondary hover:text-accent"
+            title="Opciones"
+          >
+            <MoreVertical size={14} />
+          </button>
         </div>
       </div>
 
       {menuOpen && (
+        <>
+        <div
+          className="fixed inset-0 z-40"
+          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+        />
         <div
           className="absolute top-8 right-2 bg-surface border border-glass-border rounded-lg shadow-xl z-50 min-w-[180px] py-1"
           onMouseLeave={() => setMenuOpen(false)}
@@ -153,6 +165,7 @@ export function CameraTile({ cameraId, name, wsUrl, watchdog, mjpeg, onOpenPtz, 
             <Maximize2 size={14} /> Pantalla completa
           </button>
         </div>
+        </>
       )}
     </div>
   );

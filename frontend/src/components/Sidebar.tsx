@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, Sun, Moon, Video, Film } from 'lucide-react';
+import { LayoutDashboard, Settings, Sun, Moon, Video, Film, LogOut } from 'lucide-react';
 import logo from '../assets/logo-agarcorp.png';
 
 interface Props {
@@ -6,21 +6,28 @@ interface Props {
   onNavigate: (page: string) => void;
   theme: string;
   onToggleTheme: () => void;
+  role: string;
+  onLogout: () => void;
 }
 
-export function Sidebar({ page, onNavigate, theme, onToggleTheme }: Props) {
-  const items = [
-    { id: 'dashboard', label: 'Sistema de Vigilancia AGARVEN', icon: LayoutDashboard },
-    { id: 'dvr', label: 'DVR', icon: Video },
-    { id: 'recordings', label: 'Grabaciones', icon: Film },
-    { id: 'config', label: 'Configuracion', icon: Settings },
+export function Sidebar({ page, onNavigate, theme, onToggleTheme, role, onLogout }: Props) {
+  const allItems = [
+    { id: 'dashboard', label: 'Sistema de Vigilancia AGARVEN', icon: LayoutDashboard, roles: ['baseadv', 'traileradv'] },
+    { id: 'dvr', label: 'DVR', icon: Video, roles: ['baseadv'] },
+    { id: 'recordings', label: 'Grabaciones', icon: Film, roles: ['baseadv'] },
+    { id: 'config', label: 'Configuracion', icon: Settings, roles: ['baseadv'] },
   ];
+
+  const items = allItems.filter(item => item.roles.includes(role));
 
   return (
     <div className="w-[260px] h-full bg-sidebar-bg border-r border-glass-border flex flex-col">
       <div className="p-6 flex flex-col items-center text-center">
         <img src={logo} alt="AGARCORP" className="w-24 h-24 object-contain mb-3" />
         <h1 className="text-base font-bold text-text-primary leading-tight">AGARCORP DE VENEZUELA C.A</h1>
+        <span className={`mt-2 text-xs px-2 py-0.5 rounded-full font-semibold ${role === 'baseadv' ? 'bg-accent/20 text-accent' : 'bg-warning/20 text-warning'}`}>
+          {role === 'baseadv' ? 'ADMINISTRADOR' : 'OPERADOR'}
+        </span>
       </div>
 
       <nav className="flex-1 flex flex-col justify-start items-center px-3 gap-5 pt-8">
@@ -40,10 +47,14 @@ export function Sidebar({ page, onNavigate, theme, onToggleTheme }: Props) {
         ))}
       </nav>
 
-      <div className="px-3 pb-4">
+      <div className="px-3 pb-4 flex flex-col gap-2">
         <button onClick={onToggleTheme} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-xl text-[15px] text-text-secondary hover:bg-elevated hover:text-text-primary transition-all">
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+        </button>
+        <button onClick={onLogout} className="w-full flex items-center gap-4 px-5 py-3.5 rounded-xl text-[15px] text-danger hover:bg-danger-dim hover:text-danger transition-all">
+          <LogOut size={20} />
+          Cerrar sesion
         </button>
         <p className="text-[10px] text-text-muted text-center mt-3">v1.0 &middot; AGARCORP</p>
       </div>

@@ -18,14 +18,18 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '../lib/api';
 import type { Camera, WatchdogStatus, MjpegStatus } from '../lib/api';
+import { getToken } from '../lib/auth';
 import { CameraTile } from '../components/CameraTile';
 import { PTZPanel } from '../components/PTZPanel';
 import { useKeyboardPtz } from '../hooks/useKeyboardPtz';
 import { usePtzWs } from '../hooks/usePtzWs';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const THUMB_HEIGHT = 160;
 const LEFT_WIDTH = 270;
 const LMAIN_GAP = 6;
+const M_THUMB_HEIGHT = 140;
+const M_THUMB_WIDTH = 150;
 
 function SortableCameraTile({
   cam,
@@ -73,7 +77,7 @@ function SortableCameraTile({
         <div
           {...attributes}
           {...listeners}
-          className="absolute top-1 left-1 z-20 p-1 rounded bg-surface/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
+          className="absolute top-1 left-1 z-20 p-1 rounded bg-surface/80 backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
         >
           <GripVertical size={14} className="text-text-muted" />
         </div>
@@ -100,7 +104,7 @@ watchdog={watchdog}
       <div
         {...attributes}
         {...listeners}
-        className="absolute top-2 left-2 z-20 p-1.5 rounded-lg bg-surface/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
+        className="absolute top-2 left-2 z-20 p-1.5 rounded-lg bg-surface/80 backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
       >
         <GripVertical size={14} className="text-text-muted" />
       </div>
@@ -157,6 +161,7 @@ export function Dashboard() {
   const [mjpegMap, setMjpegMap] = useState<Map<string, MjpegStatus>>(new Map());
   const [sweepActive, setSweepActive] = useState(false);
   const [sweepCameraIds, setSweepCameraIds] = useState<string[]>([]);
+  const isMobile = useIsMobile();
 
   const lmainRef = useRef<HTMLDivElement>(null);
 
@@ -264,9 +269,10 @@ export function Dashboard() {
   }, [mainCamera]);
 
   const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const mjpegUrl = (id: string) => `${wsProtocol}//${location.host}/ws/mjpeg/${id}`;
+  const wsToken = getToken() || '';
+  const mjpegUrl = (id: string) => `${wsProtocol}//${location.host}/ws/mjpeg/${id}?token=${encodeURIComponent(wsToken)}`;
 
-  const cols = gridSize;
+  const cols = isMobile ? Math.min(gridSize, 2) : gridSize;
 
   const mainCam = cameras.find(c => c.id === mainCamera);
   const otherCams = cameras.filter(c => c.id !== mainCamera);
@@ -280,44 +286,44 @@ export function Dashboard() {
   return (
     <div className="h-full flex bg-void">
       <div className="flex-1 flex flex-col p-3 gap-3 min-w-0">
-        <div className="flex items-center justify-between shrink-0 h-20 px-6 bg-[#0A192F] border-b-2 border-accent/40 shadow-[0_2px_16px_rgba(34,211,238,0.15)] rounded-xl">
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-wide">Sistema de Vigilancia AGARVEN</h1>
-            <p className="text-base text-white/80">
+        <div className="flex items-center justify-between shrink-0 h-14 px-3 lg:h-20 lg:px-6 bg-[#0A192F] border-b-2 border-accent/40 shadow-[0_2px_16px_rgba(34,211,238,0.15)] rounded-xl">
+          <div className="min-w-0">
+            <h1 className="text-sm lg:text-2xl font-bold text-white tracking-wide truncate">Sistema de Vigilancia AGARVEN</h1>
+            <p className="hidden lg:block text-base text-white/80">
               {cameras.length} camaras
               {focusedCamera !== null && cameras.find(c => c.id === focusedCamera)
                 ? ` \u00b7 Flechas: ${cameras.find(c => c.id === focusedCamera)!.name}${kbPtzConnected ? ' \u2713' : ' ...'}`
                 : ' \u00b7 Hover para flechas PTZ'}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 lg:gap-4 shrink-0">
             <button
               onClick={toggleView}
-              className="flex items-center gap-3 px-6 py-3 bg-elevated border border-glass-border hover:border-accent rounded-lg text-lg font-semibold transition-all"
+              className="flex items-center gap-2 lg:gap-3 px-2.5 py-2 lg:px-6 lg:py-3 bg-elevated border border-glass-border hover:border-accent rounded-lg text-sm lg:text-lg font-semibold transition-all"
               title={viewMode === 'grid' ? 'Cambiar a vista L+MAIN' : 'Cambiar a vista Grid'}
             >
-              {viewMode === 'grid' ? <Columns size={22} /> : <LayoutGrid size={22} />}
-              <span className="hidden sm:inline">{viewMode === 'grid' ? 'L+MAIN' : 'Grid'}</span>
+              {viewMode === 'grid' ? <Columns size={isMobile ? 18 : 22} /> : <LayoutGrid size={isMobile ? 18 : 22} />}
+              <span className="hidden lg:inline">{viewMode === 'grid' ? 'L+MAIN' : 'Grid'}</span>
             </button>
             {viewMode === 'grid' && (
               <select
                 value={gridSize}
                 onChange={e => { setGridSize(Number(e.target.value)); api.updateSettings({ grid_size: Number(e.target.value) }); }}
-                className="bg-elevated border border-glass-border rounded-lg px-6 py-3 text-lg font-semibold"
+                className="bg-elevated border border-glass-border rounded-lg px-2 py-2 lg:px-6 lg:py-3 text-sm lg:text-lg font-semibold"
               >
                 {[2,3,4,5,6].map(n => <option key={n} value={n}>{n}x{n}</option>)}
               </select>
             )}
             <button
               onClick={toggleSweep}
-              className={`flex items-center gap-3 px-6 py-3 border rounded-lg text-lg font-semibold transition-all ${sweepActive ? 'bg-accent text-white border-accent' : 'bg-elevated border-glass-border hover:border-accent'}`}
+              className={`flex items-center gap-2 lg:gap-3 px-2.5 py-2 lg:px-6 lg:py-3 border rounded-lg text-sm lg:text-lg font-semibold transition-all ${sweepActive ? 'bg-accent text-white border-accent' : 'bg-elevated border-glass-border hover:border-accent'}`}
               title={sweepActive ? `Detener patrullaje en ${sweepCameraIds.length} camaras` : 'Patrullaje horizontal en todas las camaras disponibles'}
             >
-              <Radar size={22} className={sweepActive ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">{sweepActive ? `Detener (${sweepCameraIds.length})` : 'Patrullaje'}</span>
+              <Radar size={isMobile ? 18 : 22} className={sweepActive ? 'animate-spin' : ''} />
+              <span className="hidden lg:inline">{sweepActive ? `Detener (${sweepCameraIds.length})` : 'Patrullaje'}</span>
             </button>
-            <button onClick={load} className="p-3 bg-elevated border border-glass-border hover:border-accent rounded-lg transition-all">
-              <RefreshCw size={22} />
+            <button onClick={load} className="p-2 lg:p-3 bg-elevated border border-glass-border hover:border-accent rounded-lg transition-all">
+              <RefreshCw size={isMobile ? 18 : 22} />
             </button>
           </div>
         </div>
@@ -334,8 +340,8 @@ export function Dashboard() {
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={cameraIds} strategy={rectSortingStrategy}>
               <div
-                className="flex-1 grid gap-2"
-                style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: '1fr' }}
+                className="flex-1 grid gap-2 overflow-y-auto"
+                style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: isMobile ? '200px' : '1fr' }}
               >
                 {cameras.map(cam => (
                   <SortableCameraTile
@@ -352,7 +358,7 @@ export function Dashboard() {
                   />
                 ))}
                 {Array.from({ length: Math.max(0, cols * cols - cameras.length) }).map((_, i) => (
-                  <div key={`empty-${i}`} className="border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center min-h-[180px] hover:border-accent-dim hover:bg-surface/50 transition-all cursor-pointer">
+                  <div key={`empty-${i}`} className="hidden lg:flex border-2 border-dashed border-glass-border rounded-lg items-center justify-center min-h-[180px] hover:border-accent-dim hover:bg-surface/50 transition-all cursor-pointer">
                     <span className="text-text-muted text-sm">+</span>
                   </div>
                 ))}
@@ -362,6 +368,55 @@ export function Dashboard() {
         </div>
         <div className={viewMode === 'lmain' ? 'h-full flex flex-col flex-1 min-h-0' : 'hidden'}>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            {isMobile ? (
+              <div className="flex-1 flex flex-col min-h-0" style={{ gap: LMAIN_GAP }}>
+                <div className="flex-1 min-h-0">
+                  {mainCam ? (
+                    <div className="h-full ring-1 ring-accent/20 rounded-lg overflow-hidden">
+                      <SortableCameraTile
+                        cam={mainCam}
+                        wsUrl={mjpegUrl(mainCam.id)}
+                        watchdog={watchdogMap.get(mainCam.id) ?? null}
+                        mjpeg={mjpegMap.get(mainCam.id) ?? null}
+                        viewMode="lmain"
+                        isMain={true}
+                        onOpenPtz={setPtzCamera}
+                        onFocus={setFocusedCamera}
+                        onBlur={() => setFocusedCamera(null)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-full border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center">
+                      <span className="text-text-muted text-sm">Sin camara principal</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 overflow-x-auto" style={{ gap: LMAIN_GAP, height: M_THUMB_HEIGHT }}>
+                  {otherCams.length > 0 && (
+                    <SortableContext items={cameraIds} strategy={verticalListSortingStrategy}>
+                      {otherCams.map(cam => (
+                        <SortableCameraTile
+                          key={cam.id}
+                          cam={cam}
+                          wsUrl={mjpegUrl(cam.id)}
+                          watchdog={watchdogMap.get(cam.id) ?? null}
+                          mjpeg={mjpegMap.get(cam.id) ?? null}
+                          viewMode="lmain"
+                          isMain={false}
+                          onOpenPtz={setPtzCamera}
+                          onFocus={setFocusedCamera}
+                          onBlur={() => setFocusedCamera(null)}
+                          onClick={() => handleColumnClick(cam.id)}
+                          tileHeight={M_THUMB_HEIGHT}
+                          compact
+                          thumbWidth={M_THUMB_WIDTH}
+                        />
+                      ))}
+                    </SortableContext>
+                  )}
+                </div>
+              </div>
+            ) : (
             <div ref={lmainRef} className="flex-1 flex flex-col min-h-0" style={{ gap: LMAIN_GAP }}>
               <div className="flex flex-1 min-h-0" style={{ gap: LMAIN_GAP }}>
                 <div className="shrink-0 flex flex-col" style={{ width: LEFT_WIDTH, gap: LMAIN_GAP }}>
@@ -448,6 +503,7 @@ export function Dashboard() {
                 )}
               </div>
             </div>
+            )}
           </DndContext>
         </div>
       </div>

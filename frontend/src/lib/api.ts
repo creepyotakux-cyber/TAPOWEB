@@ -1,14 +1,25 @@
+import { getToken } from './auth';
+
 const API = '';
 
 async function request<T>(url: string, opts?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (opts?.body && typeof opts.body === 'string') {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   const res = await fetch(`${API}${url}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...opts,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || 'Request failed');
   }
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
@@ -92,6 +103,12 @@ export interface Settings {
 }
 
 export const api = {
+  login: (username: string, password: string) =>
+    request<{ access_token: string; token_type: string; expires_in: number; user: { username: string; role: string; allowed_camera_ids: string[] } }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  getMe: () => request<{ username: string; role: string; allowed_camera_ids: string[] }>('/api/auth/me'),
+  getTrailerCameras: () => request<{ allowed_camera_ids: string[] }>('/api/auth/trailer-cameras'),
+  setTrailerCameras: (ids: string[]) => request<{ success: boolean; allowed_camera_ids: string[] }>('/api/auth/trailer-cameras', { method: 'PUT', body: JSON.stringify({ allowed_camera_ids: ids }) }),
+
   getCameras: () => request<Camera[]>('/api/cameras'),
   addCamera: (cam: Partial<Camera>) => request<{ cameras: Camera[] }>('/api/cameras', { method: 'POST', body: JSON.stringify(cam) }),
   updateCamera: (id: string, cam: Partial<Camera>) => request<{ cameras: Camera[] }>(`/api/cameras/${id}`, { method: 'PUT', body: JSON.stringify(cam) }),
@@ -118,7 +135,7 @@ export const api = {
   getDvrHours: (cameraId: string, date: string) => request<HourSegment[]>(`/api/recordings/hours/${cameraId}/${date}`),
   cleanupDvr: () => request<{ success: boolean; deleted: number; freed_bytes: number }>(`/api/recordings/cleanup`, { method: 'POST' }),
 
-  recordingStreamUrl: (filename: string) => `/api/recordings/stream/${filename}`,
+  recordingStreamUrl: (filename: string) => `/api/recordings/stream/${filename}?token=${getToken() ?? ''}`,
   prepareRecording: (filename: string) => request<{ ready: boolean; prepared_filename: string }>(`/api/recordings/prepare/${filename}`, { method: 'POST' }),
 
   checkRecording: (filename: string) => request<{ playable: boolean; reason: string }>(`/api/recordings/check/${filename}`),

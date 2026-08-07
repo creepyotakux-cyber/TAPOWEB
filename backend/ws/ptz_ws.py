@@ -2,6 +2,7 @@ import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 from backend.config import get_camera_by_id
 from backend.services.onvif_service import OnvifService
+from backend.auth import get_current_user_ws, get_token_from_ws
 
 _connections: dict[str, OnvifService] = {}
 
@@ -19,47 +20,61 @@ def _get_onvif(camera_id: str) -> OnvifService:
 
 
 async def ptz_websocket(websocket: WebSocket, camera_id: str):
-    _log(f"Handler called camera_id={camera_id}")
-    try:
-        await websocket.accept()
-        _log("WebSocket accepted")
+    token = get_token_from_ws(websocket)
+    user = await get_current_user_ws(websocket) if token else None
 
-        cam = get_camera_by_id(camera_id)
-        if cam is None:
-            _log(f"Camera {camera_id} not found")
-            await websocket.send_json({"error": "Camera not found"})
+    if user is None:
+        await websocket.close(code=4001, reason="Token requerido")
+        return
+
+    if user["role"] == "traileradv":
+        allowed = set(user.get("allowed_camera_ids", []))
+        if camera_id not in allowed:
+            await websocket.close(code=4003, reason="No tienes acceso a esta camara")
+            return
+
+    _log(f"Handler called camera_id={camera_id}")
+
+    await websocket.accept()
+    _log("WebSocket accepted")
+
+    cam = get_camera_by_id(camera_id)
+    if cam is None:
+        _log(f"Camera {camera_id} not found")
+        await websocket.send_json({"error": "Camera not found"})
+        await websocket.close()
+        return
+
+    onvif = _get_onvif(camera_id)
+
+    if not onvif.is_connected:
+        _log(f"Connecting ONVIF to {cam['ip']}...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, lambda: onvif.connect(cam["ip"], cam["user"], cam["password"])
+                ),
+                timeout=ONVIF_CONNECT_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            _log(f"ONVIF connect timeout after {ONVIF_CONNECT_TIMEOUT}s")
+            result = {"success": False, "error": "ONVIF connection timeout"}
+        except Exception as e:
+            _log(f"ONVIF connect exception: {e}")
+            result = {"success": False, "error": str(e)}
+
+        _log(f"ONVIF result: {result.get('success', False)}")
+
+        if not result.get("success"):
+            await websocket.send_json({"error": result.get("error", "Connection failed")})
             await websocket.close()
             return
 
-        onvif = _get_onvif(camera_id)
+    await websocket.send_json({"connected": True})
+    _log("Sent connected=True, entering receive loop")
 
-        if not onvif.is_connected:
-            _log(f"Connecting ONVIF to {cam['ip']}...")
-            try:
-                loop = asyncio.get_event_loop()
-                result = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None, lambda: onvif.connect(cam["ip"], cam["user"], cam["password"])
-                    ),
-                    timeout=ONVIF_CONNECT_TIMEOUT,
-                )
-            except asyncio.TimeoutError:
-                _log(f"ONVIF connect timeout after {ONVIF_CONNECT_TIMEOUT}s")
-                result = {"success": False, "error": "ONVIF connection timeout"}
-            except Exception as e:
-                _log(f"ONVIF connect exception: {e}")
-                result = {"success": False, "error": str(e)}
-
-            _log(f"ONVIF result: {result.get('success', False)}")
-
-            if not result.get("success"):
-                await websocket.send_json({"error": result.get("error", "Connection failed")})
-                await websocket.close()
-                return
-
-        await websocket.send_json({"connected": True})
-        _log("Sent connected=True, entering receive loop")
-
+    try:
         while True:
             data = await websocket.receive_json()
             action = data.get("action", "")

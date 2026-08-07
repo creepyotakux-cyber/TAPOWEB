@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from backend.config import load_settings, get_camera_by_id
 from backend.models import PTZCommand
 from backend.services.onvif_service import OnvifService
+from backend.auth import get_current_user_http
 
 router = APIRouter(prefix="/api/ptz", tags=["ptz"])
 
@@ -14,18 +15,29 @@ def _get_onvif(camera_id: str) -> OnvifService:
     return _connections[camera_id]
 
 
-@router.post("/{camera_id}/connect")
-def connect_ptz(camera_id: str):
+def _check_camera_access(camera_id: str, user: dict):
     cam = get_camera_by_id(camera_id)
     if cam is None:
         raise HTTPException(status_code=404, detail="Camera not found")
+    if user["role"] == "traileradv":
+        allowed = set(user.get("allowed_camera_ids", []))
+        if camera_id not in allowed:
+            raise HTTPException(status_code=403, detail="No tienes acceso a esta camara")
+    return cam
+
+
+@router.post("/{camera_id}/connect")
+def connect_ptz(camera_id: str, request: Request):
+    user = get_current_user_http(request)
+    cam = _check_camera_access(camera_id, user)
     onvif = _get_onvif(camera_id)
     result = onvif.connect(cam["ip"], cam["user"], cam["password"])
     return result
 
 
 @router.post("/{camera_id}/disconnect")
-def disconnect_ptz(camera_id: str):
+def disconnect_ptz(camera_id: str, request: Request):
+    get_current_user_http(request)
     onvif = _connections.pop(camera_id, None)
     if onvif:
         onvif.disconnect()
@@ -33,13 +45,17 @@ def disconnect_ptz(camera_id: str):
 
 
 @router.get("/{camera_id}/status")
-def ptz_status(camera_id: str):
+def ptz_status(camera_id: str, request: Request):
+    user = get_current_user_http(request)
+    _check_camera_access(camera_id, user)
     onvif = _get_onvif(camera_id)
     return {"connected": onvif.is_connected, "led": "on" if onvif._light_on else "off"}
 
 
 @router.post("/{camera_id}/command")
-def ptz_command(camera_id: str, cmd: PTZCommand):
+def ptz_command(camera_id: str, cmd: PTZCommand, request: Request):
+    user = get_current_user_http(request)
+    _check_camera_access(camera_id, user)
     onvif = _get_onvif(camera_id)
     if not onvif.is_connected:
         raise HTTPException(status_code=400, detail="PTZ not connected")
@@ -80,7 +96,9 @@ def ptz_command(camera_id: str, cmd: PTZCommand):
 
 
 @router.get("/{camera_id}/presets")
-def get_presets(camera_id: str):
+def get_presets(camera_id: str, request: Request):
+    user = get_current_user_http(request)
+    _check_camera_access(camera_id, user)
     onvif = _get_onvif(camera_id)
     if not onvif.is_connected:
         raise HTTPException(status_code=400, detail="PTZ not connected")

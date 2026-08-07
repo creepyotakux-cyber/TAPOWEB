@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getToken } from '../lib/auth';
 
 const SPEED = 1;
 
@@ -24,7 +25,7 @@ export function useKeyboardPtz(cameraIds: string[], focusedCamera: string | null
 
     for (const id of cameraIds) {
       if (conns.has(id)) continue;
-      const ws = new WebSocket(`${protocol}//${location.host}/ws/ptz/${id}`);
+      const ws = new WebSocket(`${protocol}//${location.host}/ws/ptz/${id}?token=${encodeURIComponent(getToken() || '')}`);
       const entry: CamWs = { ws, ready: false };
       conns.set(id, entry);
 

@@ -3,19 +3,20 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.routing import WebSocketRoute
 
 from backend.config import HLS_DIR, RECORDINGS_DIR, SNAPSHOTS_DIR, load_settings, build_rtsp_url
-from backend.routers import cameras, stream, ptz, recordings, snapshots
+from backend.routers import cameras, stream, ptz, recordings, snapshots, auth
 from backend.ws.ptz_ws import ptz_websocket
 from backend.ws.mjpeg_ws import mjpeg_websocket
 from backend.services.stream_manager import stream_manager
 from backend.services.recording_service import recording_service
 from backend.services.watchdog import watchdog
 from backend.services.mjpeg_manager import mjpeg_manager
+from backend.auth import get_current_user_http
 
 logger = logging.getLogger("main")
 
@@ -30,6 +31,20 @@ def _autostart_recording():
             logger.info("Killed %d orphan ffmpeg processes from previous run", killed)
     except Exception as e:
         logger.warning("Failed to kill orphan ffmpeg processes: %s", e)
+
+    try:
+        restored = recording_service.restore_all_backups()
+        if restored:
+            logger.info("Restored %d backup files to .mp4 recordings", restored)
+    except Exception as e:
+        logger.warning("Backup restoration failed: %s", e)
+
+    try:
+        migrated = recording_service.migrate_flat_segments()
+        if migrated:
+            logger.info("Migrated %d flat segments into date folders", migrated)
+    except Exception as e:
+        logger.warning("Segment migration failed: %s", e)
 
     try:
         settings = load_settings()
@@ -107,6 +122,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(cameras.router)
 app.include_router(stream.router)
 app.include_router(ptz.router)
@@ -133,8 +149,17 @@ app.router.routes.append(WebSocketRoute("/ws/mjpeg/{camera_id}", ws_mjpeg_handle
 
 
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "streams": stream_manager.status(), "watchdog": watchdog.get_statuses(), "mjpeg": mjpeg_manager.status()}
+def health(request: Request):
+    user = get_current_user_http(request)
+    streams = stream_manager.status()
+    watchdog_statuses = watchdog.get_statuses()
+    mjpeg_statuses = mjpeg_manager.status()
+    if user["role"] == "traileradv":
+        allowed = set(user.get("allowed_camera_ids", []))
+        streams = [s for s in streams if s.get("camera_id") in allowed]
+        watchdog_statuses = [w for w in watchdog_statuses if w.get("camera_id") in allowed]
+        mjpeg_statuses = [m for m in mjpeg_statuses if m.get("camera_id") in allowed]
+    return {"status": "ok", "streams": streams, "watchdog": watchdog_statuses, "mjpeg": mjpeg_statuses}
 
 
 if FRONTEND_DIR.exists():

@@ -250,8 +250,12 @@ class Watchdog:
             d = RECORDINGS_DIR / f"cam_{camera_id}"
             if not d.exists():
                 return False
-            name = datetime.datetime.now(TIMEZONE).strftime("%Y%m%d_%H.mp4")
-            f = d / name
+            now = datetime.datetime.now(TIMEZONE)
+            name = now.strftime("%Y%m%d_%H.mp4")
+            folder = now.strftime("%d_%m_%Y")
+            f = d / folder / name
+            if not f.exists():
+                f = d / name  # legacy flat fallback
             if not f.exists():
                 return False
             stat = f.stat()

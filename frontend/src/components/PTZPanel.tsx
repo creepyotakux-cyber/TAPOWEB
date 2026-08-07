@@ -49,7 +49,9 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
   };
 
   return (
-    <div className="w-[300px] bg-surface border-l border-glass-border flex flex-col h-full overflow-y-auto shrink-0">
+    <>
+    <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+    <div className="w-[300px] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:w-full max-lg:h-auto max-lg:max-h-[75dvh] max-lg:rounded-t-2xl max-lg:border-t max-lg:border-l-0 bg-surface border-l border-glass-border flex flex-col h-full overflow-y-auto shrink-0">
       <div className="flex items-center justify-between p-4 border-b border-glass-border">
         <div>
           <h2 className="text-sm font-bold text-text-primary">PTZ Control</h2>
@@ -76,21 +78,21 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
       {connected && (
         <div className="p-4 flex flex-col gap-4">
           <div className="flex flex-col items-center gap-1">
-            <button onMouseDown={() => move(0, -1)} onMouseUp={stop} onMouseLeave={stop} className="w-10 h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
+            <button onMouseDown={() => move(0, -1)} onMouseUp={stop} onMouseLeave={stop} onTouchStart={() => move(0, -1)} onTouchEnd={stop} onTouchCancel={stop} className="w-12 h-12 lg:w-10 lg:h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
               <ChevronUp size={18} />
             </button>
             <div className="flex gap-1">
-              <button onMouseDown={() => move(-1, 0)} onMouseUp={stop} onMouseLeave={stop} className="w-10 h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
+              <button onMouseDown={() => move(-1, 0)} onMouseUp={stop} onMouseLeave={stop} onTouchStart={() => move(-1, 0)} onTouchEnd={stop} onTouchCancel={stop} className="w-12 h-12 lg:w-10 lg:h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
                 <ChevronLeft size={18} />
               </button>
-              <button onClick={home} className="w-10 h-10 rounded-xl bg-accent-dim hover:bg-accent flex items-center justify-center text-white transition-all">
+              <button onClick={home} className="w-12 h-12 lg:w-10 lg:h-10 rounded-xl bg-accent-dim hover:bg-accent flex items-center justify-center text-white transition-all">
                 <Home size={18} />
               </button>
-              <button onMouseDown={() => move(1, 0)} onMouseUp={stop} onMouseLeave={stop} className="w-10 h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
+              <button onMouseDown={() => move(1, 0)} onMouseUp={stop} onMouseLeave={stop} onTouchStart={() => move(1, 0)} onTouchEnd={stop} onTouchCancel={stop} className="w-12 h-12 lg:w-10 lg:h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
                 <ChevronRight size={18} />
               </button>
             </div>
-            <button onMouseDown={() => move(0, 1)} onMouseUp={stop} onMouseLeave={stop} className="w-10 h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
+            <button onMouseDown={() => move(0, 1)} onMouseUp={stop} onMouseLeave={stop} onTouchStart={() => move(0, 1)} onTouchEnd={stop} onTouchCancel={stop} className="w-12 h-12 lg:w-10 lg:h-10 rounded-xl bg-elevated border border-glass-border hover:bg-accent-bg hover:border-accent flex items-center justify-center transition-all">
               <ChevronDown size={18} />
             </button>
           </div>
@@ -152,5 +154,6 @@ export function PTZPanel({ cameraId, cameraName, onClose }: Props) {
         </div>
       )}
     </div>
+    </>
   );
 }

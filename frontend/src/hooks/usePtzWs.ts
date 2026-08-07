@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { getToken } from '../lib/auth';
 
 export function usePtzWs(cameraId: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -18,7 +19,7 @@ export function usePtzWs(cameraId: string | null) {
       setError(null);
 
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${location.host}/ws/ptz/${cameraId}`);
+      const ws = new WebSocket(`${protocol}//${location.host}/ws/ptz/${cameraId}?token=${encodeURIComponent(getToken() || '')}`);
       wsRef.current = ws;
       ws.onopen = () => { retryCountRef.current = 0; };
       ws.onclose = () => {
