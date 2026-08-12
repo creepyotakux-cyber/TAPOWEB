@@ -9,6 +9,8 @@ export function ThemeSync() {
     root.classList.remove("light", "dark")
     if (theme === "light") {
       root.classList.add("light")
+    } else {
+      root.classList.add("dark")
     }
   }, [theme])
 

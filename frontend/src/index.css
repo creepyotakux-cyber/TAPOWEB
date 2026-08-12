@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme inline {
+@theme {
   --color-void: #06080D;
   --color-surface: #0D1117;
   --color-elevated: #161B22;
@@ -22,25 +22,6 @@
   --color-sidebar-bg: #0A0E14;
   --color-sidebar-active: #0E7490;
 
-  --color-l-void: #F8FAFC;
-  --color-l-surface: #FFFFFF;
-  --color-l-elevated: #F1F5F9;
-  --color-l-glass-border: #E2E8F0;
-  --color-l-glass-shine: #CBD5E1;
-  --color-l-accent: #0891B2;
-  --color-l-accent-dim: #0E7490;
-  --color-l-accent-glow: #06B6D4;
-  --color-l-accent-bg: #E0F7FA;
-  --color-l-text-primary: #0F172A;
-  --color-l-text-secondary: #475569;
-  --color-l-text-muted: #94A3B8;
-  --color-l-live: #16A34A;
-  --color-l-recording: #DC2626;
-  --color-l-warning: #D97706;
-  --color-l-offline: #CBD5E1;
-  --color-l-danger-dim: #FEE2E2;
-  --color-l-sidebar-bg: #FFFFFF;
-
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -49,38 +30,26 @@
   --radius-2xl: 16px;
 }
 
-:root {
-  --bg: var(--color-void);
-  --surface: var(--color-surface);
-  --elevated: var(--color-elevated);
-  --border: var(--color-glass-border);
-  --shine: var(--color-glass-shine);
-  --accent: var(--color-accent);
-  --accent-dim: var(--color-accent-dim);
-  --accent-bg: var(--color-accent-bg);
-  --text: var(--color-text-primary);
-  --text2: var(--color-text-secondary);
-  --text-muted: var(--color-text-muted);
-  --live: var(--color-live);
-  --rec: var(--color-recording);
-  --sidebar-bg: var(--color-sidebar-bg);
-}
-
 :root.light {
-  --bg: var(--color-l-void);
-  --surface: var(--color-l-surface);
-  --elevated: var(--color-l-elevated);
-  --border: var(--color-l-glass-border);
-  --shine: var(--color-l-glass-shine);
-  --accent: var(--color-l-accent);
-  --accent-dim: var(--color-l-accent-dim);
-  --accent-bg: var(--color-l-accent-bg);
-  --text: var(--color-l-text-primary);
-  --text2: var(--color-l-text-secondary);
-  --text-muted: var(--color-l-text-muted);
-  --live: var(--color-l-live);
-  --rec: var(--color-l-recording);
-  --sidebar-bg: var(--color-l-sidebar-bg);
+  --color-void: #E2E8F0;
+  --color-surface: #FFFFFF;
+  --color-elevated: #F1F5F9;
+  --color-glass-border: #94A3B8;
+  --color-glass-shine: #64748B;
+  --color-accent: #0891B2;
+  --color-accent-dim: #0E7490;
+  --color-accent-glow: #06B6D4;
+  --color-accent-bg: #CFFAFE;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748B;
+  --color-live: #16A34A;
+  --color-recording: #DC2626;
+  --color-warning: #D97706;
+  --color-offline: #94A3B8;
+  --color-danger-dim: #FEE2E2;
+  --color-sidebar-bg: #F1F5F9;
+  --color-sidebar-active: #0891B2;
 }
 
 @font-face {
@@ -98,8 +67,8 @@
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-void);
+  color: var(--color-text-primary);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
@@ -129,12 +98,12 @@ button {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--shine); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+::-webkit-scrollbar-thumb { background: var(--color-glass-shine); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent-dim); }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--shine) transparent;
+  scrollbar-color: var(--color-glass-shine) transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -9,12 +9,16 @@ import { Login } from './pages/Login';
 import { api } from './lib/api';
 import { isAuthenticated, getToken, getUser, subscribe, logout } from './lib/auth';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useSettingsStore } from './lib/store';
 
 export default function App() {
   const [auth, setAuth] = useState(isAuthenticated);
   const isMobile = useIsMobile();
   const [page, setPage] = useState(() => sessionStorage.getItem('activePage') || 'dashboard');
-  const [theme, setTheme] = useState('dark');
+
+  const theme = useSettingsStore((s) => s.theme);
+  const toggleTheme = useSettingsStore((s) => s.toggleTheme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
 
   useEffect(() => {
     return subscribe(() => setAuth(isAuthenticated()));
@@ -27,19 +31,19 @@ export default function App() {
   useEffect(() => {
     if (!auth) return;
     api.getSettings().then(s => {
-      setTheme(s.theme);
-      document.documentElement.classList.toggle('light', s.theme === 'light');
+      if (s.theme === 'light' || s.theme === 'dark') {
+        setTheme(s.theme);
+      }
     }).catch(err => {
       if (err.message?.includes('Token')) logout();
     });
   }, [auth]);
 
-  const toggleTheme = useCallback(() => {
+  const handleToggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    document.documentElement.classList.toggle('light', next === 'light');
+    toggleTheme();
     api.updateSettings({ theme: next }).catch(() => {});
-  }, [theme]);
+  }, [theme, toggleTheme]);
 
   const handleLogin = useCallback(() => {
     setAuth(true);
@@ -59,7 +63,7 @@ export default function App() {
 
   return (
     <div className="h-full flex">
-      {!isMobile && <Sidebar page={page} onNavigate={setPage} theme={theme} onToggleTheme={toggleTheme} role={role} onLogout={handleLogout} />}
+      {!isMobile && <Sidebar page={page} onNavigate={setPage} theme={theme} onToggleTheme={handleToggleTheme} role={role} onLogout={handleLogout} />}
       <div className="flex-1 h-full overflow-hidden flex flex-col min-w-0">
         <div className="flex-1 min-h-0 relative">
           <div className={page === 'dashboard' ? 'h-full' : 'h-full hidden'}>
@@ -69,7 +73,7 @@ export default function App() {
           {page === 'dvr' && <Dvr />}
           {page === 'recordings' && <Recordings />}
         </div>
-        {isMobile && <MobileNav page={page} onNavigate={setPage} theme={theme} onToggleTheme={toggleTheme} role={role} onLogout={handleLogout} />}
+        {isMobile && <MobileNav page={page} onNavigate={setPage} theme={theme} onToggleTheme={handleToggleTheme} role={role} onLogout={handleLogout} />}
       </div>
     </div>
   );

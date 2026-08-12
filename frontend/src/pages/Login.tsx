@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useRef, FormEvent, KeyboardEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { api } from '../lib/api';
 import { login as doLogin } from '../lib/auth';
@@ -11,6 +11,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -93,6 +94,12 @@ export function Login({ onLogin }: { onLogin: () => void }) {
               }}
               onFocus={(e) => { e.target.style.borderColor = '#22D3EE'; e.target.style.boxShadow = '0 0 0 2px rgba(34,211,238,0.15)'; }}
               onBlur={(e) => { e.target.style.borderColor = '#1A2030'; e.target.style.boxShadow = 'none'; }}
+              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  passwordRef.current?.focus();
+                }
+              }}
             />
           </div>
 
@@ -107,6 +114,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                ref={passwordRef}
                 style={{
                   width: '100%',
                   background: '#161B22',

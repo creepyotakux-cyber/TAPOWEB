@@ -28,26 +28,26 @@ export function MobileNav({ page, onNavigate, theme, onToggleTheme, role, onLogo
         <button
           key={item.id}
           onClick={() => onNavigate(item.id)}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ${
+          className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors ${
             page === item.id ? 'text-accent bg-accent-bg' : 'text-text-secondary'
           }`}
         >
-          <item.icon size={20} />
+          <item.icon size={24} />
           {item.label}
         </button>
       ))}
       <button
         onClick={onToggleTheme}
-        className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold text-text-secondary transition-colors"
+        className="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold text-text-secondary transition-colors"
       >
-        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
         Tema
       </button>
       <button
         onClick={onLogout}
-        className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold text-danger transition-colors"
+        className="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold text-danger transition-colors"
       >
-        <LogOut size={20} />
+        <LogOut size={24} />
         Salir
       </button>
     </nav>

@@ -10,6 +10,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import { useUIStore, useSettingsStore } from "@/lib/store"
+import { api } from "@/lib/api"
 import {
   LayoutDashboard,
   Settings,
@@ -25,6 +26,12 @@ export function CommandPalette() {
   const theme = useSettingsStore((s) => s.theme)
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
   const navigate = useNavigate()
+
+  const handleToggleTheme = useCallback(() => {
+    const next = theme === "dark" ? "light" : "dark"
+    toggleTheme()
+    api.updateSettings({ theme: next }).catch(() => {})
+  }, [theme, toggleTheme])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -71,7 +78,7 @@ export function CommandPalette() {
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Acciones">
-          <CommandItem onSelect={toggleTheme}>
+          <CommandItem onSelect={handleToggleTheme}>
             {theme === "dark" ? (
               <Sun className="w-4 h-4 mr-2" />
             ) : (

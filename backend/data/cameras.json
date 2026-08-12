@@ -53,7 +53,7 @@
   ],
   "grid_size": 3,
   "theme": "dark",
-  "view_mode": "grid",
+  "view_mode": "lmain",
   "main_camera": "222f0785",
   "recording_retention_days": 7
 }

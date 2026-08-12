@@ -286,10 +286,10 @@ export function Dashboard() {
   return (
     <div className="h-full flex bg-void">
       <div className="flex-1 flex flex-col p-3 gap-3 min-w-0">
-        <div className="flex items-center justify-between shrink-0 h-14 px-3 lg:h-20 lg:px-6 bg-[#0A192F] border-b-2 border-accent/40 shadow-[0_2px_16px_rgba(34,211,238,0.15)] rounded-xl">
+        <div className="flex items-center justify-between shrink-0 h-14 px-3 lg:h-20 lg:px-6 bg-surface border-b-2 border-accent/40 shadow-[0_2px_16px_rgba(34,211,238,0.15)] rounded-xl">
           <div className="min-w-0">
-            <h1 className="text-sm lg:text-2xl font-bold text-white tracking-wide truncate">Sistema de Vigilancia AGARVEN</h1>
-            <p className="hidden lg:block text-base text-white/80">
+            <h1 className="text-sm lg:text-2xl font-bold text-text-primary tracking-wide truncate">Sistema de Vigilancia AGARVEN</h1>
+            <p className="hidden lg:block text-base text-text-secondary">
               {cameras.length} camaras
               {focusedCamera !== null && cameras.find(c => c.id === focusedCamera)
                 ? ` \u00b7 Flechas: ${cameras.find(c => c.id === focusedCamera)!.name}${kbPtzConnected ? ' \u2713' : ' ...'}`

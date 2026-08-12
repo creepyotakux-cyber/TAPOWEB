@@ -20,7 +20,6 @@ createRoot(document.getElementById("root")!).render(
             <App />
             <Toaster
               position="bottom-right"
-              theme="dark"
               closeButton
               richColors
             />
