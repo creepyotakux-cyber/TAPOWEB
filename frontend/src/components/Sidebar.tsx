@@ -1,18 +1,19 @@
-import { LayoutDashboard, Settings, Sun, Moon, Video, Film, LogOut } from 'lucide-react';
-import logo from '../assets/logo-agarcorp.png';
+import { LayoutDashboard, Settings, Video, Film, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import logo from '../assets/LOGO_AGAR_SVG_FONDOBLANCO.svg';
+import { useUIStore } from '../lib/store';
 
 interface Props {
   page: string;
   onNavigate: (page: string) => void;
-  theme: string;
-  onToggleTheme: () => void;
   role: string;
-  onLogout: () => void;
 }
 
-export function Sidebar({ page, onNavigate, theme, onToggleTheme, role, onLogout }: Props) {
+export function Sidebar({ page, onNavigate, role }: Props) {
+  const collapsed = useUIStore((s) => s.sidebarCollapsed);
+  const toggleCollapsed = useUIStore((s) => s.toggleSidebar);
+
   const allItems = [
-    { id: 'dashboard', label: 'Sistema de Vigilancia AGARVEN', icon: LayoutDashboard, roles: ['baseadv', 'traileradv'] },
+    { id: 'dashboard', label: 'En Vivo', icon: LayoutDashboard, roles: ['baseadv', 'traileradv'] },
     { id: 'dvr', label: 'DVR', icon: Video, roles: ['baseadv'] },
     { id: 'recordings', label: 'Grabaciones', icon: Film, roles: ['baseadv'] },
     { id: 'config', label: 'Configuracion', icon: Settings, roles: ['baseadv'] },
@@ -21,46 +22,59 @@ export function Sidebar({ page, onNavigate, theme, onToggleTheme, role, onLogout
   const items = allItems.filter(item => item.roles.includes(role));
 
   return (
-    <div className="w-[360px] h-full bg-sidebar-bg border-r border-glass-border flex flex-col">
-      <div className="pt-9 px-5 pb-0 flex flex-col items-center text-center">
-        <img src={logo} alt="AGARCORP" className="w-28 h-28 object-contain mb-4" />
-        <h1 className="text-sm font-bold text-text-primary leading-tight">AGARCORP DE VENEZUELA C.A</h1>
-        <span className={`mt-2.5 text-xs px-3 py-1 rounded-full font-bold tracking-wide ${role === 'baseadv' ? 'bg-accent/20 text-accent' : 'bg-warning/20 text-warning'}`}>
-          {role === 'baseadv' ? 'ADMINISTRADOR' : 'OPERADOR'}
-        </span>
-      </div>
+    <div className={`h-full bg-sidebar-bg border-r border-glass-border flex flex-col shrink-0 transition-[width] duration-200 ${collapsed ? 'w-14' : 'w-64'}`}>
+      {collapsed ? (
+        <div className="h-14 flex items-center justify-center border-b border-glass-border">
+          <img src={logo} alt="AGARCORP" className="w-10 h-10 object-contain" />
+        </div>
+      ) : (
+        <div className="px-4 py-5 flex flex-col items-center gap-3 text-center border-b border-glass-border">
+          <img src={logo} alt="AGARCORP" className="w-32 h-auto max-h-[112px] object-contain" />
+          <div className="leading-tight">
+            <p className="text-lg font-bold text-text-primary tracking-wide">AGARCORP</p>
+            <p className="text-lg font-bold text-text-primary leading-tight tracking-wide">DE VENEZUELA</p>
+          </div>
+        </div>
+      )}
 
-      <div className="mx-5 my-5 border-t border-glass-border" />
-
-      <nav className="flex-1 flex flex-col justify-start items-center px-3 gap-3.5 pt-1">
-        {items.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            className={`w-full flex items-start gap-4 px-6 py-6 rounded-xl text-2xl leading-snug border-2 transition-all ${
-              page === item.id
-                ? 'bg-accent-bg text-accent border-accent font-bold'
-                : 'text-text-secondary border-glass-border hover:bg-elevated hover:text-text-primary hover:border-accent/40 font-semibold'
-            }`}
-          >
-            <item.icon size={36} className="shrink-0 mt-0.5" />
-            <span>{item.label}</span>
-          </button>
-        ))}
+      <nav className="flex-1 flex flex-col gap-2 px-2 py-3">
+        {items.map(item => {
+          const active = page === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onNavigate(item.id)}
+              title={collapsed ? item.label : undefined}
+              className={`relative flex items-center gap-3 rounded-sm border border-glass-border/50 transition-all ${
+                collapsed ? 'justify-center px-0 py-6' : 'px-3 py-6'
+              } ${
+                active
+                  ? 'bg-accent-bg text-accent border-accent/40'
+                  : 'text-text-secondary hover:bg-elevated hover:text-text-primary hover:border-glass-border'
+              }`}
+            >
+              {active && <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-accent rounded-full" />}
+              <item.icon size={30} className="shrink-0" />
+              {!collapsed && <span className="text-[22px] font-semibold truncate">{item.label}</span>}
+            </button>
+          );
+        })}
       </nav>
 
-      <div className="mx-5 mb-2 border-t border-glass-border" />
-
-      <div className="px-4 pb-5 flex flex-col gap-3">
-        <button onClick={onToggleTheme} className="w-full flex items-center gap-4 px-6 py-6 rounded-xl text-2xl font-semibold text-text-secondary hover:bg-elevated hover:text-text-primary border border-glass-border hover:border-accent/40 transition-all">
-          {theme === 'dark' ? <Sun size={36} /> : <Moon size={36} />}
-          {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+      <div className="border-t border-glass-border p-2 flex flex-col gap-2">
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? 'Expandir menu' : 'Colapsar menu'}
+          className={`flex items-center gap-3 rounded-sm border border-glass-border/50 text-text-muted hover:bg-elevated hover:text-text-primary hover:border-glass-border transition-all ${
+            collapsed ? 'justify-center px-0 py-5' : 'px-3 py-5'
+          }`}
+        >
+          {collapsed ? <PanelLeftOpen size={26} /> : <PanelLeftClose size={26} />}
+          {!collapsed && <span className="text-base font-semibold">Colapsar</span>}
         </button>
-        <button onClick={onLogout} className="w-full flex items-center gap-4 px-6 py-6 rounded-xl text-2xl font-semibold text-danger hover:bg-danger-dim hover:text-danger border border-glass-border hover:border-danger transition-all">
-          <LogOut size={36} />
-          Cerrar sesion
-        </button>
-        <p className="text-xs text-text-muted text-center mt-2">v1.0 &middot; AGARCORP</p>
+        {!collapsed && (
+          <p className="font-mono text-[9px] text-text-muted text-center pb-1 tracking-wider">v1.0</p>
+        )}
       </div>
     </div>
   );

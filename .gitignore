@@ -20,4 +20,9 @@ backend/data/snapshots/
 
 # Local agent/workspace cruft
 .opencode/
+.agents/
 test_cam.jpg
+
+# Sensitive auth data (JWT secret + user credentials)
+backend/data/.secret_key
+backend/data/users.json

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Video, Play, Film, Trash2, RefreshCw,
-  ChevronLeft, ChevronRight, Circle, X, Download, Loader2,
+  Film, Trash2, RefreshCw,
+  ChevronLeft, ChevronRight, X, Download, Loader2,
 } from 'lucide-react';
 import type HlsType from 'hls.js';
 import { api } from '../lib/api';
@@ -75,22 +75,22 @@ function CalendarView({ days, selectedDate, onSelect }: {
   const todayMonth = today.getMonth();
 
   return (
-    <div className="bg-surface border border-glass-border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3 gap-2">
-        <button onClick={prevMonth} className="p-3 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all">
-          <ChevronLeft size={24} className="text-current" />
+    <div className="bg-surface border border-glass-border/60 rounded-sm p-3">
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <button onClick={prevMonth} className="p-2.5 rounded-md bg-void border border-glass-border/70 text-text-secondary hover:text-accent hover:border-accent transition-colors">
+          <ChevronLeft size={18} className="text-current" />
         </button>
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-sm font-semibold font-mono uppercase tracking-[0.14em] text-text-primary">
           {MONTHS_ES[viewMonth]} {viewYear}
         </h3>
-        <button onClick={nextMonth} className="p-3 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all">
-          <ChevronRight size={24} className="text-current" />
+        <button onClick={nextMonth} className="p-2.5 rounded-md bg-void border border-glass-border/70 text-text-secondary hover:text-accent hover:border-accent transition-colors">
+          <ChevronRight size={18} className="text-current" />
         </button>
       </div>
 
       <div className="grid grid-cols-7 gap-1 mb-1">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="text-center text-[10px] font-bold text-text-muted py-1">{w}</div>
+          <div key={i} className="text-center text-[10px] font-bold text-text-muted font-mono uppercase py-1">{w}</div>
         ))}
       </div>
 
@@ -109,9 +109,9 @@ function CalendarView({ days, selectedDate, onSelect }: {
               key={i}
               onClick={() => day && cell.date && onSelect(cell.date)}
               disabled={!day || isFuture}
-              className={`aspect-square rounded-md flex flex-col items-center justify-center text-xs transition-all relative
-                ${isSelected ? 'bg-accent text-white font-bold' : ''}
-                ${!isSelected && day ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent cursor-pointer' : ''}
+              className={`aspect-square rounded-md flex flex-col items-center justify-center text-xs font-mono transition-colors relative
+                ${isSelected ? 'bg-accent text-on-accent font-bold' : ''}
+                ${!isSelected && day ? 'bg-void text-text-primary border border-glass-border/60 hover:border-accent hover:text-accent cursor-pointer' : ''}
                 ${!day && !isFuture ? 'text-text-muted cursor-default' : ''}
                 ${isFuture ? 'text-text-muted opacity-40 cursor-not-allowed' : ''}
                 ${isToday && !isSelected ? 'ring-1 ring-accent' : ''}
@@ -120,7 +120,7 @@ function CalendarView({ days, selectedDate, onSelect }: {
             >
               <span>{cell.dom}</span>
               {day && (
-                <span className={`w-1 h-1 rounded-full mt-0.5 ${isSelected ? 'bg-white' : 'bg-recording'}`} />
+                <span className={`w-1 h-1 rounded-[1px] mt-0.5 ${isSelected ? 'bg-white' : 'bg-recording'}`} />
               )}
             </button>
           );
@@ -130,7 +130,7 @@ function CalendarView({ days, selectedDate, onSelect }: {
   );
 }
 
-function HourGrid({ hours, selectedHour, onSelect }: {
+function HourTimeline({ hours, selectedHour, onSelect }: {
   hours: HourSegment[];
   selectedHour: number | null;
   onSelect: (hour: number) => void;
@@ -139,46 +139,53 @@ function HourGrid({ hours, selectedHour, onSelect }: {
   const byHour = new Map<number, HourSegment>();
   for (const h of hours) byHour.set(h.hour, h);
 
+  const totalSize = hours.reduce((acc, h) => acc + h.size, 0);
+
   return (
-    <div className="bg-surface border border-glass-border rounded-lg p-4">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">Horas disponibles</h3>
-      <div className="grid grid-cols-4 lg:grid-cols-6 gap-2">
+    <div className="bg-surface border border-glass-border/60 rounded-sm p-3">
+      <div className="flex items-center justify-between mb-2.5">
+        <h3 className="text-[11px] font-mono uppercase tracking-[0.18em] text-text-secondary">Timeline 24h</h3>
+        <span className="font-mono text-[10px] text-text-muted">
+          {hours.length} seg &middot; {formatSize(totalSize)}
+        </span>
+      </div>
+
+      <div className="flex items-end gap-[3px] h-14">
         {all24.map((h) => {
           const seg = byHour.get(h);
-          const isSelected = h === selectedHour;
           const playable = seg?.playable !== false;
-          const inProgress = seg?.in_progress === true;
-          const clickable = seg && (playable || inProgress);
+          const clickable = seg && (playable || seg.in_progress);
+          const isSelected = h === selectedHour;
           return (
             <button
               key={h}
               onClick={() => clickable && onSelect(h)}
               disabled={!clickable}
-              className={`rounded-lg p-2 flex flex-col items-center justify-center text-xs transition-all min-h-[60px]
-                ${isSelected ? 'bg-accent text-white' : ''}
-                ${!isSelected && clickable ? 'bg-elevated text-text-primary hover:bg-accent-bg hover:text-accent border border-glass-border' : ''}
-                ${!clickable ? 'bg-void/30 text-text-muted border border-glass-border/30 cursor-not-allowed' : ''}
-              `}
-              title={seg ? (inProgress ? `${pad(h)}:00 - ${pad(h + 1)}:00 (grabando - ${formatSize(seg.size)})` : `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})`) : ''}
-            >
-              <div className="flex items-center gap-1 font-semibold">
-                {seg && inProgress ? (
-                  <span className="w-2.5 h-2.5 rounded-full bg-recording animate-pulse" />
-                ) : seg && playable ? (
-                  isSelected ? <Circle size={10} className="fill-white text-white" /> : <Play size={10} className="text-live" />
-                ) : null}
-                <span>{pad(h)}:00</span>
-              </div>
-              {seg ? (
-                <span className={`text-[9px] mt-0.5 ${isSelected ? 'text-white/80' : 'text-text-muted'}`}>
-                  {formatSize(seg.size)}
-                </span>
-              ) : (
-                <span className="text-[9px] mt-0.5 text-text-muted opacity-50">—</span>
-              )}
-            </button>
+              aria-label={`${pad(h)}:00`}
+              className={`flex-1 min-w-0 rounded-[1px] transition-colors ${clickable
+                ? isSelected
+                  ? 'bg-accent'
+                  : 'bg-recording/75 hover:bg-accent/80'
+                : 'bg-void border border-glass-border/40'}
+                ${seg?.in_progress && !isSelected ? 'animate-pulse' : ''}`}
+              style={{ height: clickable ? '100%' : '35%' }}
+              title={seg ? (seg.in_progress
+                ? `${pad(h)}:00 - ${pad(h + 1)}:00 (grabando - ${formatSize(seg.size)})`
+                : `${pad(h)}:00 - ${pad(h + 1)}:00 (${formatSize(seg.size)})`)
+                : `${pad(h)}:00 sin grabacion`}
+            />
           );
         })}
+      </div>
+
+      <div className="flex mt-1">
+        {[0, 3, 6, 9, 12, 15, 18, 21].map(h => (
+          <div key={h} className="flex-1 flex flex-col items-start">
+            <div className="h-1 w-px bg-glass-border/60" />
+            <span className="font-mono text-[9px] text-text-muted leading-none mt-0.5">{pad(h)}:00</span>
+          </div>
+        ))}
+        <div className="flex-1" />
       </div>
     </div>
   );
@@ -332,27 +339,27 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
   }, [filename, url]);
 
   return (
-    <div className="bg-surface border border-glass-border rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-glass-border">
+    <div className="bg-surface border border-glass-border/60 rounded-sm overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-glass-border/60">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-semibold text-text-primary truncate">{title}</span>
+          <span className="text-xs font-semibold font-mono text-text-primary truncate">{title}</span>
         </div>
         <div className="flex items-center gap-1">
           {onPrev && (
-            <button onClick={onPrev} className="p-1.5 rounded hover:bg-elevated transition-all text-text-secondary hover:text-accent" title="Hora anterior">
-              <ChevronLeft size={14} />
+            <button onClick={onPrev} className="p-2 rounded-sm hover:bg-elevated transition-colors text-text-secondary hover:text-accent" title="Hora anterior">
+              <ChevronLeft size={15} />
             </button>
           )}
           {onNext && (
-            <button onClick={onNext} className="p-1.5 rounded hover:bg-elevated transition-all text-text-secondary hover:text-accent" title="Hora siguiente">
-              <ChevronRight size={14} />
+            <button onClick={onNext} className="p-2 rounded-sm hover:bg-elevated transition-colors text-text-secondary hover:text-accent" title="Hora siguiente">
+              <ChevronRight size={15} />
             </button>
           )}
-          <a href={downloadUrl} download className="p-1.5 rounded hover:bg-elevated transition-all text-accent" title="Descargar">
-            <Download size={14} />
+          <a href={downloadUrl} download className="p-2 rounded-sm hover:bg-elevated transition-colors text-accent" title="Descargar">
+            <Download size={15} />
           </a>
-          <button onClick={onClose} className="p-1.5 rounded hover:bg-elevated transition-all text-text-secondary hover:text-danger" title="Cerrar">
-            <X size={14} />
+          <button onClick={onClose} className="p-2 rounded-sm hover:bg-elevated transition-colors text-text-secondary hover:text-danger" title="Cerrar">
+            <X size={15} />
           </button>
         </div>
       </div>
@@ -362,12 +369,12 @@ function VideoPlayer({ filename, title, url, downloadUrl, onClose, onNext, onPre
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
             <Loader2 size={28} className="text-accent animate-spin" />
             {preparing && (
-              <span className="text-xs text-text-muted">Preparando segmento...</span>
+              <span className="text-xs font-mono text-text-muted uppercase tracking-[0.14em]">Preparando segmento...</span>
             )}
           </div>
         )}
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center text-text-muted text-sm text-center px-4">
+          <div className="absolute inset-0 flex items-center justify-center text-text-muted text-base text-center px-4">
             {errorMsg}
           </div>
         )}
@@ -515,24 +522,24 @@ export function Dvr() {
     : '';
 
   return (
-    <div className="h-full flex flex-col p-4 gap-3 overflow-y-auto">
+    <div className="h-full flex flex-col p-3 gap-3 overflow-y-auto">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Video size={20} className="text-accent" />
-          <h1 className="text-lg font-bold text-text-primary">DVR - Grabacion continua</h1>
+        <div className="flex items-center gap-2.5">
+          <span className="px-2 py-1 bg-void border border-glass-border/70 rounded-sm font-mono text-[10px] font-bold text-accent tracking-[0.14em] leading-none">DVR</span>
+          <h1 className="text-base font-bold font-mono uppercase tracking-[0.12em] text-text-primary">Grabacion continua</h1>
           <div
-            className="flex items-center gap-1.5 bg-recording/20 px-2 py-1 rounded border border-recording/40"
+            className="flex items-center gap-1.5 bg-recording/15 px-2 py-1 rounded-sm border border-recording/40"
             title="Las camaras graban siempre. El DVR no se puede detener."
           >
             <div className="w-1.5 h-1.5 rounded-full bg-recording animate-pulse" />
-            <span className="text-[10px] font-bold text-recording">REC</span>
+            <span className="text-[10px] font-bold text-recording tracking-[0.14em]">REC</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={selectedCamera}
             onChange={(e) => setSelectedCamera(e.target.value)}
-            className="bg-elevated border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
+            className="bg-void border border-glass-border/70 rounded-md px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-accent"
           >
             {cameras.map((c) => (
               <option key={c.id} value={c.id}>{c.name || `Cam ${c.id}`}</option>
@@ -540,24 +547,24 @@ export function Dvr() {
           </select>
 <button
               onClick={refreshCalendar}
-              className="p-2 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-accent hover:border-accent transition-all"
+              className="p-2.5 rounded-md bg-void border border-glass-border/70 text-text-secondary hover:text-accent hover:border-accent transition-colors"
               title="Actualizar"
             >
-              <RefreshCw size={14} className={(loadingCalendar || autoRefreshing) ? 'animate-spin' : ''} />
+              <RefreshCw size={15} className={(loadingCalendar || autoRefreshing) ? 'animate-spin' : ''} />
             </button>
           <button
             onClick={handleCleanup}
             disabled={cleanupBusy}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-elevated border border-glass-border text-text-secondary hover:text-danger hover:border-danger transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-void border border-glass-border/70 text-text-secondary hover:text-danger hover:border-danger transition-colors disabled:opacity-50"
             title="Eliminar grabaciones antiguas"
           >
-            <Trash2 size={14} className={cleanupBusy ? 'animate-spin' : ''} />
+            <Trash2 size={15} className={cleanupBusy ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
       {lastCleanup && (
-        <div className="bg-elevated border border-glass-border rounded-lg px-3 py-2 text-xs text-text-secondary">
+        <div className="bg-void border border-glass-border/60 rounded-sm px-3 py-2 text-xs font-mono text-text-secondary">
           {lastCleanup}
         </div>
       )}
@@ -569,15 +576,15 @@ export function Dvr() {
         <div className="lg:col-span-7 xl:col-span-8">
           {selectedDate ? (
             <>
-              <div className="mb-2 text-xs text-text-muted">
-                <Film size={12} className="inline mr-1" />
+              <div className="mb-2 text-sm text-text-muted">
+                <Film size={14} className="inline mr-1" />
                 {formatDateEs(selectedDate)}
               </div>
-              <HourGrid hours={hours} selectedHour={selectedHour} onSelect={setSelectedHour} />
+              <HourTimeline hours={hours} selectedHour={selectedHour} onSelect={setSelectedHour} />
             </>
           ) : (
-            <div className="bg-surface border border-glass-border rounded-lg p-4 h-full flex items-center justify-center text-text-muted text-sm">
-              Selecciona una fecha del calendario para ver las horas grabadas
+            <div className="bg-surface border border-glass-border/60 rounded-sm p-4 h-full flex items-center justify-center text-text-muted text-sm">
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em]">Selecciona una fecha del calendario</span>
             </div>
           )}
         </div>
@@ -599,7 +606,7 @@ export function Dvr() {
 
       {cameras.length === 0 && (
         <div className="text-center py-16 text-text-muted text-sm">
-          No hay camaras configuradas. Ve a Configuracion para agregar una.
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em]">No hay camaras configuradas. Ve a Configuracion.</span>
         </div>
       )}
     </div>

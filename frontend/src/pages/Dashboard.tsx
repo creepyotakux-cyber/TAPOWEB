@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { RefreshCw, LayoutGrid, Columns, GripVertical, Radar } from 'lucide-react';
 import {
   DndContext,
@@ -45,6 +46,8 @@ function SortableCameraTile({
   tileHeight,
   compact,
   thumbWidth,
+  index = 0,
+  camNumber,
 }: {
   cam: Camera;
   wsUrl: string;
@@ -59,6 +62,8 @@ function SortableCameraTile({
   tileHeight?: number;
   compact?: boolean;
   thumbWidth?: number;
+  index?: number;
+  camNumber?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cam.id });
 
@@ -67,17 +72,18 @@ function SortableCameraTile({
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : 'auto',
+    animationDelay: `${Math.min(index, 12) * 45}ms`,
     ...(!compact && tileHeight ? { height: tileHeight, minHeight: tileHeight } : {}),
     ...(compact && thumbWidth ? { width: thumbWidth, minWidth: thumbWidth, maxWidth: thumbWidth } : {}),
   };
 
   if (viewMode === 'lmain' && !isMain) {
     return (
-      <div ref={setNodeRef} style={style} className={`relative group h-full ${compact ? 'flex-1 min-h-0' : ''}`}>
+      <div ref={setNodeRef} style={style} className={`animate-tile-in relative group h-full ${compact ? 'flex-1 min-h-0' : ''}`}>
         <div
           {...attributes}
           {...listeners}
-          className="absolute top-1 left-1 z-20 p-1 rounded bg-surface/80 backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
+          className="absolute top-1 left-1 z-20 p-1 rounded-sm bg-void/85 backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
         >
           <GripVertical size={14} className="text-text-muted" />
         </div>
@@ -86,13 +92,14 @@ function SortableCameraTile({
             cameraId={cam.id}
             name={cam.name}
             wsUrl={wsUrl}
-watchdog={watchdog}
+            watchdog={watchdog}
             mjpeg={mjpeg}
             onOpenPtz={onOpenPtz}
             onFocus={onFocus}
             onBlur={onBlur}
             className="min-h-0"
             compact={compact}
+            camNumber={camNumber}
           />
         </div>
       </div>
@@ -100,11 +107,11 @@ watchdog={watchdog}
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="relative group h-full">
+    <div ref={setNodeRef} style={style} className="animate-tile-in relative group h-full">
       <div
         {...attributes}
         {...listeners}
-        className="absolute top-2 left-2 z-20 p-1.5 rounded-lg bg-surface/80 backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
+        className="absolute top-2 left-2 z-20 p-1.5 rounded-sm bg-void/85 backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
       >
         <GripVertical size={14} className="text-text-muted" />
       </div>
@@ -117,6 +124,7 @@ watchdog={watchdog}
         onOpenPtz={onOpenPtz}
         onFocus={onFocus}
         onBlur={onBlur}
+        camNumber={camNumber}
       />
     </div>
   );
@@ -283,49 +291,68 @@ export function Dashboard() {
 
   const leftEmptyCount = Math.max(0, 4 - leftCams.length);
 
+  const camNum = (id: string) => cameras.findIndex(c => c.id === id) + 1;
+
   return (
     <div className="h-full flex bg-void">
-      <div className="flex-1 flex flex-col p-3 gap-3 min-w-0">
-        <div className="flex items-center justify-between shrink-0 h-14 px-3 lg:h-20 lg:px-6 bg-surface border-b-2 border-accent/40 shadow-[0_2px_16px_rgba(34,211,238,0.15)] rounded-xl">
-          <div className="min-w-0">
-            <h1 className="text-sm lg:text-2xl font-bold text-text-primary tracking-wide truncate">Sistema de Vigilancia AGARVEN</h1>
-            <p className="hidden lg:block text-base text-text-secondary">
-              {cameras.length} camaras
-              {focusedCamera !== null && cameras.find(c => c.id === focusedCamera)
-                ? ` \u00b7 Flechas: ${cameras.find(c => c.id === focusedCamera)!.name}${kbPtzConnected ? ' \u2713' : ' ...'}`
-                : ' \u00b7 Hover para flechas PTZ'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 lg:gap-4 shrink-0">
+      <div className="flex-1 flex flex-col p-2 gap-2 min-w-0">
+        <div className="flex items-center gap-2 shrink-0 h-12 px-2 lg:px-3 bg-surface border border-glass-border rounded-sm">
+          <div className="flex items-center bg-elevated border border-glass-border rounded-sm p-0.5">
             <button
-              onClick={toggleView}
-              className="flex items-center gap-2 lg:gap-3 px-2.5 py-2 lg:px-6 lg:py-3 bg-elevated border border-glass-border hover:border-accent rounded-lg text-sm lg:text-lg font-semibold transition-all"
-              title={viewMode === 'grid' ? 'Cambiar a vista L+MAIN' : 'Cambiar a vista Grid'}
+              onClick={() => { if (viewMode !== 'grid') toggleView(); }}
+              title="Vista grilla"
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-sm transition-all ${viewMode === 'grid' ? 'bg-accent text-on-accent' : 'text-text-secondary hover:text-text-primary'}`}
             >
-              {viewMode === 'grid' ? <Columns size={isMobile ? 18 : 22} /> : <LayoutGrid size={isMobile ? 18 : 22} />}
-              <span className="hidden lg:inline">{viewMode === 'grid' ? 'L+MAIN' : 'Grid'}</span>
+              <LayoutGrid size={17} />
+              <span className="hidden lg:inline font-mono text-xs font-semibold uppercase tracking-[0.12em]">Grid</span>
             </button>
-            {viewMode === 'grid' && (
-              <select
-                value={gridSize}
-                onChange={e => { setGridSize(Number(e.target.value)); api.updateSettings({ grid_size: Number(e.target.value) }); }}
-                className="bg-elevated border border-glass-border rounded-lg px-2 py-2 lg:px-6 lg:py-3 text-sm lg:text-lg font-semibold"
-              >
-                {[2,3,4,5,6].map(n => <option key={n} value={n}>{n}x{n}</option>)}
-              </select>
-            )}
             <button
-              onClick={toggleSweep}
-              className={`flex items-center gap-2 lg:gap-3 px-2.5 py-2 lg:px-6 lg:py-3 border rounded-lg text-sm lg:text-lg font-semibold transition-all ${sweepActive ? 'bg-accent text-white border-accent' : 'bg-elevated border-glass-border hover:border-accent'}`}
-              title={sweepActive ? `Detener patrullaje en ${sweepCameraIds.length} camaras` : 'Patrullaje horizontal en todas las camaras disponibles'}
+              onClick={() => { if (viewMode !== 'lmain') toggleView(); }}
+              title="Vista principal + auxiliares"
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-sm transition-all ${viewMode === 'lmain' ? 'bg-accent text-on-accent' : 'text-text-secondary hover:text-text-primary'}`}
             >
-              <Radar size={isMobile ? 18 : 22} className={sweepActive ? 'animate-spin' : ''} />
-              <span className="hidden lg:inline">{sweepActive ? `Detener (${sweepCameraIds.length})` : 'Patrullaje'}</span>
-            </button>
-            <button onClick={load} className="p-2 lg:p-3 bg-elevated border border-glass-border hover:border-accent rounded-lg transition-all">
-              <RefreshCw size={isMobile ? 18 : 22} />
+              <Columns size={17} />
+              <span className="hidden lg:inline font-mono text-xs font-semibold uppercase tracking-[0.12em]">L+Main</span>
             </button>
           </div>
+
+          {viewMode === 'grid' && (
+            <select
+              value={gridSize}
+              aria-label="Tamano de grilla"
+              onChange={e => { setGridSize(Number(e.target.value)); api.updateSettings({ grid_size: Number(e.target.value) }); }}
+              className="bg-elevated border border-glass-border rounded-sm px-3 py-2 font-mono text-sm font-semibold text-text-primary focus:outline-none focus:border-accent"
+            >
+              {[2,3,4,5,6].map(n => <option key={n} value={n}>{n}x{n}</option>)}
+            </select>
+          )}
+
+          <div className="h-6 w-px bg-glass-border" />
+
+          <button
+            onClick={toggleSweep}
+            className={`flex items-center gap-1.5 px-3.5 py-2 border rounded-sm font-mono text-xs font-semibold uppercase tracking-[0.12em] transition-all ${sweepActive ? 'bg-accent text-on-accent border-accent' : 'bg-elevated border-glass-border text-text-secondary hover:border-accent hover:text-text-primary'}`}
+            title={sweepActive ? `Detener patrullaje en ${sweepCameraIds.length} camaras` : 'Patrullaje horizontal en todas las camaras disponibles'}
+          >
+            <Radar size={17} className={sweepActive ? 'animate-spin' : ''} />
+            <span className="hidden lg:inline">{sweepActive ? `Stop (${sweepCameraIds.length})` : 'Patrulla'}</span>
+          </button>
+          <button
+            onClick={load}
+            aria-label="Actualizar"
+            title="Actualizar"
+            className="p-2.5 bg-elevated border border-glass-border hover:border-accent rounded-sm text-text-secondary hover:text-text-primary transition-all"
+          >
+            <RefreshCw size={17} />
+          </button>
+
+          <div className="flex-1" />
+
+          <span className="hidden lg:block font-mono text-[11px] text-text-muted truncate">
+            {focusedCamera !== null && cameras.find(c => c.id === focusedCamera)
+              ? `PTZ \u2192 ${cameras.find(c => c.id === focusedCamera)!.name}${kbPtzConnected ? ' \u2713' : ' ...'}`
+              : 'Hover sobre una camara para PTZ por teclado'}
+          </span>
         </div>
 
         {/*
@@ -336,17 +363,24 @@ export function Dashboard() {
           WS re-handshakes). FFmpeg streams on the backend are shared, so having
           two subscribers per camera costs nothing extra.
         */}
-        <div className={viewMode === 'grid' ? 'h-full flex flex-col flex-1 min-h-0' : 'hidden'}>
+        <motion.div
+          initial={false}
+          animate={{ opacity: viewMode === 'grid' ? 1 : 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className={viewMode === 'grid' ? 'h-full flex flex-col flex-1 min-h-0' : 'hidden'}
+        >
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={cameraIds} strategy={rectSortingStrategy}>
               <div
                 className="flex-1 grid gap-2 overflow-y-auto"
                 style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: isMobile ? '200px' : '1fr' }}
               >
-                {cameras.map(cam => (
+                {cameras.map((cam, i) => (
                   <SortableCameraTile
                     key={cam.id}
+                    index={i}
                     cam={cam}
+                    camNumber={camNum(cam.id)}
                     wsUrl={mjpegUrl(cam.id)}
                     watchdog={watchdogMap.get(cam.id) ?? null}
                     mjpeg={mjpegMap.get(cam.id) ?? null}
@@ -358,15 +392,20 @@ export function Dashboard() {
                   />
                 ))}
                 {Array.from({ length: Math.max(0, cols * cols - cameras.length) }).map((_, i) => (
-                  <div key={`empty-${i}`} className="hidden lg:flex border-2 border-dashed border-glass-border rounded-lg items-center justify-center min-h-[180px] hover:border-accent-dim hover:bg-surface/50 transition-all cursor-pointer">
-                    <span className="text-text-muted text-sm">+</span>
+                  <div key={`empty-${i}`} className="hidden lg:flex border border-dashed border-glass-border/60 rounded-sm items-center justify-center min-h-[180px] bg-void/40 hover:border-accent/40 transition-colors">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Slot {cameras.length + i + 1}</span>
                   </div>
                 ))}
               </div>
             </SortableContext>
           </DndContext>
-        </div>
-        <div className={viewMode === 'lmain' ? 'h-full flex flex-col flex-1 min-h-0' : 'hidden'}>
+        </motion.div>
+        <motion.div
+          initial={false}
+          animate={{ opacity: viewMode === 'lmain' ? 1 : 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className={viewMode === 'lmain' ? 'h-full flex flex-col flex-1 min-h-0' : 'hidden'}
+        >
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             {isMobile ? (
               <div className="flex-1 flex flex-col min-h-0" style={{ gap: LMAIN_GAP }}>
@@ -375,6 +414,7 @@ export function Dashboard() {
                     <div className="h-full ring-1 ring-accent/20 rounded-lg overflow-hidden">
                       <SortableCameraTile
                         cam={mainCam}
+                        camNumber={camNum(mainCam.id)}
                         wsUrl={mjpegUrl(mainCam.id)}
                         watchdog={watchdogMap.get(mainCam.id) ?? null}
                         mjpeg={mjpegMap.get(mainCam.id) ?? null}
@@ -398,6 +438,7 @@ export function Dashboard() {
                         <SortableCameraTile
                           key={cam.id}
                           cam={cam}
+                          camNumber={camNum(cam.id)}
                           wsUrl={mjpegUrl(cam.id)}
                           watchdog={watchdogMap.get(cam.id) ?? null}
                           mjpeg={mjpegMap.get(cam.id) ?? null}
@@ -426,9 +467,10 @@ export function Dashboard() {
                         <SortableCameraTile
                           key={cam.id}
                           cam={cam}
+                          camNumber={camNum(cam.id)}
                           wsUrl={mjpegUrl(cam.id)}
                           watchdog={watchdogMap.get(cam.id) ?? null}
-                    mjpeg={mjpegMap.get(cam.id) ?? null}
+                          mjpeg={mjpegMap.get(cam.id) ?? null}
                           viewMode="lmain"
                           isMain={false}
                           onOpenPtz={setPtzCamera}
@@ -441,8 +483,8 @@ export function Dashboard() {
                     </SortableContext>
                   )}
                   {Array.from({ length: leftEmptyCount }).map((_, i) => (
-                    <div key={`left-empty-${i}`} className="flex-1 border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all">
-                      <span className="text-text-muted text-sm">+</span>
+                    <div key={`left-empty-${i}`} className="flex-1 border border-dashed border-glass-border/60 rounded-sm flex items-center justify-center bg-void/40 hover:border-accent/40 transition-colors">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Slot {camNum(mainCam?.id ?? '') === 0 ? i + 1 : leftCams.length + i + 1}</span>
                     </div>
                   ))}
                 </div>
@@ -451,6 +493,7 @@ export function Dashboard() {
                     <div className="h-full ring-1 ring-accent/20 rounded-lg overflow-hidden">
                       <SortableCameraTile
                         cam={mainCam}
+                        camNumber={camNum(mainCam.id)}
                         wsUrl={mjpegUrl(mainCam.id)}
                         watchdog={watchdogMap.get(mainCam.id) ?? null}
                         mjpeg={mjpegMap.get(mainCam.id) ?? null}
@@ -462,8 +505,8 @@ export function Dashboard() {
                       />
                     </div>
                   ) : (
-                    <div className="h-full border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all">
-                      <span className="text-text-muted text-sm">Sin camara principal</span>
+                    <div className="h-full border border-dashed border-glass-border/60 rounded-sm flex items-center justify-center bg-void/40 hover:border-accent/40 transition-colors">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Sin camara principal</span>
                     </div>
                   )}
                 </div>
@@ -475,9 +518,10 @@ export function Dashboard() {
                       <SortableCameraTile
                         key={cam.id}
                         cam={cam}
+                        camNumber={camNum(cam.id)}
                         wsUrl={mjpegUrl(cam.id)}
                         watchdog={watchdogMap.get(cam.id) ?? null}
-                    mjpeg={mjpegMap.get(cam.id) ?? null}
+                        mjpeg={mjpegMap.get(cam.id) ?? null}
                         viewMode="lmain"
                         isMain={false}
                         onOpenPtz={setPtzCamera}
@@ -493,11 +537,11 @@ export function Dashboard() {
                 )}
                 {bottomCams.length === 0 && (
                   <>
-                    <div className="border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all" style={{ width: LEFT_WIDTH, minWidth: LEFT_WIDTH }}>
-                      <span className="text-text-muted text-sm">+</span>
+                    <div className="border border-dashed border-glass-border/60 rounded-sm flex items-center justify-center bg-void/40 hover:border-accent/40 transition-colors" style={{ width: LEFT_WIDTH, minWidth: LEFT_WIDTH }}>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Slot {leftCams.length + 1}</span>
                     </div>
-                    <div className="flex-1 border-2 border-dashed border-glass-border rounded-lg flex items-center justify-center hover:border-accent-dim hover:bg-surface/50 transition-all">
-                      <span className="text-text-muted text-sm">+</span>
+                    <div className="flex-1 border border-dashed border-glass-border/60 rounded-sm flex items-center justify-center bg-void/40 hover:border-accent/40 transition-colors">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Slot {leftCams.length + 2}</span>
                     </div>
                   </>
                 )}
@@ -505,7 +549,7 @@ export function Dashboard() {
             </div>
             )}
           </DndContext>
-        </div>
+        </motion.div>
       </div>
 
       {ptzCamera !== null && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit3, Trash2, Save, X, Camera as CameraIcon, Eye, EyeOff } from 'lucide-react';
 import { api } from '../lib/api';
 import type { Camera } from '../lib/api';
+import { EmptyState } from '../components/EmptyState';
 
 export function Config() {
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -69,66 +70,75 @@ export function Config() {
     setShowForm(true);
   };
 
-  const inputClass = 'w-full bg-elevated border border-glass-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none';
+  const inputClass = 'w-full bg-void border border-glass-border/70 rounded-md px-3 py-2.5 text-sm font-mono text-text-primary placeholder-text-muted focus:border-accent focus:outline-none';
 
   return (
-    <div className="h-full flex flex-col p-4 gap-3 overflow-hidden">
+    <div className="h-full flex flex-col p-3 gap-3 overflow-hidden">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-text-primary">Configuracion</h1>
-          <p className="text-xs text-text-muted">{cameras.length} camaras registradas</p>
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-1 bg-void border border-glass-border/70 rounded-sm font-mono text-[10px] font-bold text-accent tracking-[0.14em] leading-none">CFG</span>
+          <div>
+            <h1 className="font-mono text-base font-bold uppercase tracking-[0.12em] text-text-primary">Configuracion</h1>
+            <p className="font-mono text-[10px] text-text-muted">{cameras.length} camaras registradas</p>
+          </div>
         </div>
-        <button onClick={() => { setForm({ name: '', ip: '', user: '', password: '', model: '' }); setEditing(null); setShowForm(true); }} className="flex items-center gap-1.5 bg-accent-dim hover:bg-accent text-white px-3 py-1.5 rounded-lg text-sm transition-all">
-          <Plus size={14} /> Agregar Camara
-        </button>
+<button onClick={() => { setForm({ name: '', ip: '', user: '', password: '', model: '' }); setEditing(null); setShowForm(true); }} className="flex items-center gap-1.5 bg-accent-dim hover:bg-accent text-on-accent px-3 py-2 rounded-md font-mono text-xs font-semibold uppercase tracking-[0.1em] transition-colors">
+            <Plus size={14} /> Agregar
+          </button>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-        {cameras.map((cam) => (
-          <div key={cam.id} className="bg-surface border border-glass-border rounded-xl p-4 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-accent-bg flex items-center justify-center">
-              <CameraIcon size={20} className="text-accent" />
+        <div className="border border-glass-border/60 rounded-sm overflow-hidden divide-y divide-glass-border/40">
+          {cameras.map((cam, i) => (
+            <div key={cam.id} className="bg-surface px-3 py-2.5 flex items-center gap-3 hover:bg-elevated/60 transition-colors">
+              <span className="px-2 py-1 bg-void border border-glass-border/70 rounded-sm font-mono text-[10px] font-bold text-text-secondary tracking-[0.12em] leading-none shrink-0">
+                CAM {String(i + 1).padStart(2, '0')}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-xs font-mono font-semibold text-text-primary truncate">{cam.name}</h3>
+                  {cam.enabled === false && (
+                    <span className="px-1.5 py-[2px] bg-danger/15 border border-danger/40 rounded-sm font-mono text-[9px] font-bold text-danger uppercase tracking-[0.1em] leading-none">Off</span>
+                  )}
+                </div>
+                <p className="font-mono text-[11px] text-text-muted">{cam.ip} &middot; {cam.model || '—'}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => handleEdit(cam)} className="p-2 hover:bg-elevated rounded-sm transition-colors" title="Editar">
+                  <Edit3 size={14} className="text-text-muted hover:text-accent" />
+                </button>
+                <button onClick={() => handleDelete(cam.id)} className="p-2 hover:bg-danger-dim rounded-sm transition-colors" title="Eliminar">
+                  <Trash2 size={14} className="text-danger" />
+                </button>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-text-primary">{cam.name}</h3>
-              <p className="text-xs text-text-muted">{cam.model || 'Sin modelo'} &middot; {cam.ip}</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => handleEdit(cam)} className="p-2 hover:bg-elevated rounded-lg transition-all" title="Editar">
-                <Edit3 size={14} className="text-text-muted" />
-              </button>
-              <button onClick={() => handleDelete(cam.id)} className="p-2 hover:bg-danger-dim rounded-lg transition-all" title="Eliminar">
-                <Trash2 size={14} className="text-danger" />
-              </button>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
 
         {cameras.length === 0 && (
-          <div className="text-center py-16 text-text-muted">
-            <CameraIcon size={48} className="mx-auto mb-3 opacity-30" />
-            <p>No hay camaras configuradas</p>
-          </div>
+          <EmptyState icon={CameraIcon} title="Sin cámaras configuradas" subtitle="Agrega tu primera cámara usando el botón de arriba." />
         )}
 
         {cameras.length > 0 && (
-          <div className="mt-4 bg-surface border border-glass-border rounded-xl p-4">
-            <h2 className="text-base font-bold text-text-primary mb-1">Camaras del Trailer</h2>
-            <p className="text-xs text-text-muted mb-3">Selecciona que camaras puede ver el operador (trailer)</p>
-            <div className="space-y-2">
+          <div className="border border-glass-border/60 rounded-sm overflow-hidden">
+            <div className="px-3 py-2 bg-elevated/50 border-b border-glass-border/60">
+              <h2 className="text-[11px] font-mono font-bold uppercase tracking-[0.16em] text-text-primary">Camaras del Trailer</h2>
+              <p className="text-[10px] font-mono text-text-muted mt-0.5">Selecciona que camaras puede ver el operador</p>
+            </div>
+            <div className="divide-y divide-glass-border/40">
               {cameras.map(cam => (
-                <label key={cam.id} className="flex items-center gap-3 px-3 py-2 bg-elevated rounded-lg cursor-pointer hover:bg-glass-border transition-all">
+                <label key={cam.id} className="flex items-center gap-3 px-3 py-2.5 bg-surface cursor-pointer hover:bg-elevated/60 transition-colors">
                   <input
                     type="checkbox"
                     checked={trailerCams.has(cam.id)}
                     onChange={() => toggleTrailerCam(cam.id)}
-                    className="w-4 h-4 rounded accent-accent"
+                    className="w-4 h-4 rounded-sm accent-accent"
                   />
-                  <span className="flex-1 text-sm text-text-primary">{cam.name}</span>
-                  <span className="text-xs text-text-muted">{cam.ip}</span>
+                  <span className="flex-1 text-xs font-mono text-text-primary truncate">{cam.name}</span>
+                  <span className="font-mono text-[11px] text-text-muted">{cam.ip}</span>
                   {trailerCams.has(cam.id)
-                    ? <Eye size={14} className="text-live" />
-                    : <EyeOff size={14} className="text-text-muted" />
+                    ? <Eye size={15} className="text-live" />
+                    : <EyeOff size={15} className="text-text-muted" />
                   }
                 </label>
               ))}
@@ -139,10 +149,10 @@ export function Config() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-surface border border-glass-border rounded-2xl p-6 w-full max-w-[420px] max-h-[90dvh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-text-primary">{editing !== null ? 'Editar Camara' : 'Agregar Camara'}</h2>
-              <button onClick={() => setShowForm(false)} className="p-1 hover:bg-elevated rounded-lg"><X size={18} /></button>
+          <div className="bg-surface border border-glass-border/60 rounded-sm p-5 w-full max-w-[420px] max-h-[90dvh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4 border-b border-glass-border/60 pb-3">
+              <h2 className="text-sm font-mono font-bold uppercase tracking-[0.14em] text-text-primary">{editing !== null ? 'Editar Camara' : 'Agregar Camara'}</h2>
+              <button onClick={() => setShowForm(false)} className="p-1.5 hover:bg-elevated rounded-sm text-text-secondary hover:text-accent transition-colors"><X size={18} /></button>
             </div>
             <div className="space-y-3">
               <input placeholder="Nombre" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} className={inputClass} />
@@ -152,10 +162,10 @@ export function Config() {
               <input placeholder="Modelo (c200, c500...)" value={form.model || ''} onChange={e => setForm({ ...form, model: e.target.value })} className={inputClass} />
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={handleSave} className="flex-1 flex items-center justify-center gap-1.5 bg-accent-dim hover:bg-accent text-white py-2 rounded-lg text-sm transition-all">
+              <button onClick={handleSave} className="flex-1 flex items-center justify-center gap-1.5 bg-accent-dim hover:bg-accent text-on-accent py-2.5 rounded-md font-mono text-xs font-semibold uppercase tracking-[0.1em] transition-colors">
                 <Save size={14} /> {editing !== null ? 'Guardar' : 'Agregar'}
               </button>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-elevated border border-glass-border rounded-lg text-sm hover:border-accent transition-all">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2.5 bg-void border border-glass-border/70 rounded-md font-mono text-xs hover:border-accent transition-colors">
                 Cancelar
               </button>
             </div>

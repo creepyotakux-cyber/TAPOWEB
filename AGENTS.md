@@ -200,6 +200,19 @@ URL RTSP:
 4. Si la cámara responde a ONVIF pero no a RTSP con las mismas creds → cuenta RTSP desincronizada (conocido en Tapo C500). Apagar y re-encender Third-Party Compatibility.
 5. Mira logs del backend: `Camera <id> ffmpeg: ...` o `Watchdog check error`.
 
+## Diseño UI (NVR Steel Console)
+
+El frontend usa un sistema de diseño "NVR steel console" (consola de grabadora), acero/navy. Reglas al tocar UI:
+
+- **Tokens** en `frontend/src/index.css` (`@theme`): navy (`--color-void #070B12`, `--color-surface`, `--color-elevated`, `--color-glass-border`) + acento steel blue (`--color-accent #3B82F6`). Light mode en `:root.light`.
+- **Tipografías** (index.html): IBM Plex Sans (UI), IBM Plex Mono (datos/etiquetas/tiempos), IBM Plex Sans Condensed (displays).
+- **Estética**: esquinas rectas (`rounded-sm`/`rounded-[2px]` en controles), tablas/rows densas con `divide-y`, etiquetas de sección `font-mono text-[9-10px] uppercase tracking-[0.14em]`, badges `CAM NN` en tiles y listas, estados en texto en mayúsculas mono (`LIVE`, `RETRY`, `OFFLINE`, `REC`).
+- **Sin sombras ni gradientes grandes, sin redondeos `rounded-xl/2xl`**, sin hover "lift" (`-translate-y`). El feedback hover es cambio de borde a `accent`.
+- **CameraTile**: identificador `camNumber` (CAM 01, CAM 02...) opcional; lo pasa `Dashboard` vía `camNum(id)` = index+1 en el array de cámaras. Numeración NVR = orden en `cameras.json`.
+- Los componentes `ui/*` (shadcn/base-ui) heredan el tema vía aliases en `@theme` (`--color-primary`, `--color-background`, `--color-border`, etc.) — no tocar sus variantes directamente salvo que haga falta.
+- El DVR muestra un **timeline scrubber 24h** (`HourTimeline` en `Dvr.tsx`): barras proporcionales por hora con segmentos en `recording` y ticks cada 3 h. No usar grilla de botones de horas.
+- Celdas vacías de grilla/L+MAIN = "SLOT NN" con borde dashed sutil.
+
 ## Estado actual (snapshot)
 
 - Backend: totalmente migrado a `camera_id: str` (uuid 8 hex).

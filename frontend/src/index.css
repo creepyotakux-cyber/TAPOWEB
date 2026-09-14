@@ -1,61 +1,82 @@
 @import "tailwindcss";
 
 @theme {
-  --color-void: #06080D;
-  --color-surface: #0D1117;
-  --color-elevated: #161B22;
-  --color-glass-border: #1A2030;
-  --color-glass-shine: #2A3548;
-  --color-accent: #22D3EE;
-  --color-accent-dim: #0E7490;
-  --color-accent-glow: #06B6D4;
-  --color-accent-bg: #083344;
-  --color-text-primary: #F1F5F9;
-  --color-text-secondary: #94A3B8;
-  --color-text-muted: #475569;
+  --color-void: #070B12;
+  --color-surface: #0D1420;
+  --color-elevated: #141E30;
+  --color-glass-border: #1E2B40;
+  --color-glass-shine: #2A3B55;
+  --color-accent: #3B82F6;
+  --color-accent-dim: #1D4ED8;
+  --color-accent-glow: #60A5FA;
+  --color-accent-bg: #172554;
+  --color-text-primary: #E8EEF7;
+  --color-text-secondary: #8FA3BD;
+  --color-text-muted: #4A5B73;
   --color-live: #22C55E;
   --color-recording: #EF4444;
   --color-warning: #F59E0B;
-  --color-offline: #334155;
+  --color-offline: #3D4E66;
   --color-danger: #DC2626;
   --color-danger-dim: #7F1D1D;
-  --color-sidebar-bg: #0A0E14;
-  --color-sidebar-active: #0E7490;
+  --color-sidebar-bg: #0A1018;
+  --color-sidebar-active: #1D4ED8;
+  --color-on-accent: #FFFFFF;
+
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", "Fira Code", monospace;
 
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+
+  --color-background: var(--color-void);
+  --color-foreground: var(--color-text-primary);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-on-accent);
+  --color-secondary: var(--color-elevated);
+  --color-secondary-foreground: var(--color-text-primary);
+  --color-muted: var(--color-glass-border);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-accent-foreground: var(--color-on-accent);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-on-accent);
+  --color-border: var(--color-glass-border);
+  --color-input: var(--color-glass-border);
+  --color-ring: var(--color-accent);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text-primary);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text-primary);
+  --color-command: var(--color-surface);
+  --color-command-foreground: var(--color-text-primary);
 }
 
 :root.light {
-  --color-void: #E2E8F0;
+  --color-void: #E8EDF4;
   --color-surface: #FFFFFF;
-  --color-elevated: #F1F5F9;
-  --color-glass-border: #94A3B8;
-  --color-glass-shine: #64748B;
-  --color-accent: #0891B2;
-  --color-accent-dim: #0E7490;
-  --color-accent-glow: #06B6D4;
-  --color-accent-bg: #CFFAFE;
-  --color-text-primary: #0F172A;
-  --color-text-secondary: #475569;
+  --color-elevated: #F1F5FA;
+  --color-glass-border: #C3CEDD;
+  --color-glass-shine: #A8BCD4;
+  --color-accent: #2563EB;
+  --color-accent-dim: #1D4ED8;
+  --color-accent-glow: #3B82F6;
+  --color-accent-bg: #DBEAFE;
+  --color-text-primary: #0F1B2D;
+  --color-text-secondary: #3D4E66;
   --color-text-muted: #64748B;
   --color-live: #16A34A;
   --color-recording: #DC2626;
   --color-warning: #D97706;
   --color-offline: #94A3B8;
   --color-danger-dim: #FEE2E2;
-  --color-sidebar-bg: #F1F5F9;
-  --color-sidebar-active: #0891B2;
-}
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
-  font-display: swap;
+  --color-sidebar-bg: #EDF2F8;
+  --color-sidebar-active: #2563EB;
+  --color-on-accent: #FFFFFF;
 }
 
 *,
@@ -69,7 +90,7 @@
 body {
   background: var(--color-void);
   color: var(--color-text-primary);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -92,18 +113,18 @@ button {
 
 :focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  outline-offset: 1px;
+  border-radius: var(--radius-xs);
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-glass-shine); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-accent-dim); }
+::-webkit-scrollbar-thumb { background: var(--color-glass-border); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-glass-shine); }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-glass-shine) transparent;
+  scrollbar-color: var(--color-glass-border) transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -116,6 +137,63 @@ button {
   }
 }
 
-.font-mono {
-  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
+
+.animate-shimmer {
+  background-image: linear-gradient(110deg, transparent 35%, rgba(96, 165, 250, 0.08) 50%, transparent 65%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes tileIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-tile-in {
+  animation: tileIn 0.25s ease both;
+}
+
+@keyframes scanline {
+  0% { background-position: 0 -100%; }
+  100% { background-position: 0 100%; }
+}
+
+.animate-scanline {
+  background: linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.06), transparent);
+  background-size: 100% 200%;
+  animation: scanline 2s linear infinite;
+}
+
+@keyframes cctvPan {
+  0%, 100% { transform: translateX(-7px); }
+  50% { transform: translateX(13px); }
+}
+
+.animate-cctv-pan {
+  animation: cctvPan 3s ease-in-out infinite;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.status-led {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.status-led.live { background: var(--color-live); box-shadow: 0 0 6px rgba(34, 197, 94, 0.55); }
+.status-led.warn { background: var(--color-warning); box-shadow: 0 0 6px rgba(245, 158, 11, 0.55); }
+.status-led.error { background: var(--color-recording); box-shadow: 0 0 6px rgba(239, 68, 68, 0.55); }
+.status-led.off { background: var(--color-offline); }

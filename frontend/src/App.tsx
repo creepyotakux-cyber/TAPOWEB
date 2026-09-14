@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { MobileNav } from './components/MobileNav';
+import { TopBar } from './components/layout/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Config } from './pages/Config';
 import { Recordings } from './pages/Recordings';
@@ -62,19 +63,22 @@ export default function App() {
   }
 
   return (
-    <div className="h-full flex">
-      {!isMobile && <Sidebar page={page} onNavigate={setPage} theme={theme} onToggleTheme={handleToggleTheme} role={role} onLogout={handleLogout} />}
-      <div className="flex-1 h-full overflow-hidden flex flex-col min-w-0">
-        <div className="flex-1 min-h-0 relative">
-          <div className={page === 'dashboard' ? 'h-full' : 'h-full hidden'}>
-            <Dashboard />
+    <div className="h-full flex flex-col">
+      <TopBar page={page} theme={theme} onToggleTheme={handleToggleTheme} role={role} onLogout={handleLogout} />
+      <div className="flex-1 flex min-h-0">
+        {!isMobile && <Sidebar page={page} onNavigate={setPage} role={role} />}
+        <div className="flex-1 h-full overflow-hidden flex flex-col min-w-0">
+          <div className="flex-1 min-h-0 relative">
+            <div className={page === 'dashboard' ? 'h-full' : 'h-full hidden'}>
+              <Dashboard />
+            </div>
+            {page === 'config' && role === 'baseadv' && <Config />}
+            {page === 'dvr' && <Dvr />}
+            {page === 'recordings' && <Recordings />}
           </div>
-          {page === 'config' && role === 'baseadv' && <Config />}
-          {page === 'dvr' && <Dvr />}
-          {page === 'recordings' && <Recordings />}
         </div>
-        {isMobile && <MobileNav page={page} onNavigate={setPage} theme={theme} onToggleTheme={handleToggleTheme} role={role} onLogout={handleLogout} />}
       </div>
+      {isMobile && <MobileNav page={page} onNavigate={setPage} theme={theme} onToggleTheme={handleToggleTheme} role={role} onLogout={handleLogout} />}
     </div>
   );
 }
